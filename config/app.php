@@ -123,4 +123,13 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Stock Sync Secret
+    |--------------------------------------------------------------------------
+    | Secret key untuk endpoint /stock/sync-all agar tidak bisa dipanggil
+    | oleh sembarang orang. Set di .env: STOCK_SYNC_SECRET=xxx
+    */
+    'stock_sync_secret' => env('STOCK_SYNC_SECRET', ''),
+
 ];

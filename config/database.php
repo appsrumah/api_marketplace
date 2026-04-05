@@ -64,6 +64,22 @@ return [
             ]) : [],
         ],
 
+        // ── Koneksi ke Database POS (sistem terpisah) ──────────────
+        'pos' => [
+            'driver'    => 'mysql',
+            'host'      => env('POS_DB_HOST', 'localhost'),
+            'port'      => env('POS_DB_PORT', '3306'),
+            'database'  => env('POS_DB_DATABASE', ''),
+            'username'  => env('POS_DB_USERNAME', ''),
+            'password'  => env('POS_DB_PASSWORD', ''),
+            'unix_socket' => '',
+            'charset'   => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix'    => '',
+            'strict'    => false,
+            'options'   => [],
+        ],
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),
@@ -149,7 +165,7 @@ return [
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-database-'),
+            'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')) . '-database-'),
             'persistent' => env('REDIS_PERSISTENT', false),
         ],
 
