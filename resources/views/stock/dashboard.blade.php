@@ -465,7 +465,7 @@
                                         <span class="text-xs text-blue-600 font-medium">{{ $produk->account->seller_name }}</span>
                                         @if($produk->account->last_update_stock)
                                             <p class="mt-0.5 text-[10px] text-emerald-600">
-                                                âœ“ {{ $produk->account->last_update_stock->diffForHumans() }}
+                                                 {{ $produk->account->last_update_stock->diffForHumans() }}
                                             </p>
                                         @else
                                             <p class="mt-0.5 text-[10px] text-amber-500">Belum pernah sync</p>
