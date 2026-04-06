@@ -7,3 +7,20 @@ deployment:
     - cd $DEPLOYPATH && $PHP artisan config:clear
     - cd $DEPLOYPATH && $PHP artisan route:clear
     - cd $DEPLOYPATH && $PHP artisan view:clear
+
+# =============================================================================
+# CRON JOBS — Tambahkan 2 baris ini di cPanel > Cron Jobs
+# =============================================================================
+#
+# 1. Dispatch jobs ke queue (sync stok) — setiap 30 menit:
+#    */30 * * * * /opt/alt/php83/usr/bin/php /home/olen6374/public_html/app.oleh2indonesia.com/artisan tiktok:sync-stock >> /home/olen6374/logs/stock-sync.log 2>&1
+#
+# 2. Proses jobs dari queue — setiap 5 menit:
+#    */5  * * * * /opt/alt/php83/usr/bin/php /home/olen6374/public_html/app.oleh2indonesia.com/artisan queue:work --queue=tiktok-inventory --stop-when-empty --max-time=240 --tries=3 >> /home/olen6374/logs/queue-worker.log 2>&1
+#
+# Penjelasan:
+#   - Cron #1 : menjalankan artisan command yang dispatch jobs ke tabel `jobs`
+#   - Cron #2 : menjalankan queue worker dengan --stop-when-empty agar otomatis
+#               berhenti setelah semua job selesai (aman untuk shared hosting)
+#   - --max-time=240 : worker berhenti paksa setelah 4 menit (sebelum cron berikutnya)
+# =============================================================================

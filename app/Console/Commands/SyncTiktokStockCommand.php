@@ -52,11 +52,14 @@ class SyncTiktokStockCommand extends Command
             $this->info("▶ Akun [{$account->id}] {$account->seller_name} (outlet: {$account->id_outlet})");
 
             // Ambil semua produk TIKTOK + TOKOPEDIA ACTIVATE
+            // distinct() mencegah duplikat job karena 1 sku_id bisa ada di 2 baris (TIKTOK + TOKOPEDIA)
             // seller_sku tidak wajib — jika kosong, job akan di-skip (stok tidak bisa diambil dari POS)
             $products = ProdukSaya::where('account_id', $account->id)
                 ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
                 ->where('product_status', 'ACTIVATE')
-                ->get(['product_id', 'sku_id', 'seller_sku', 'platform', 'title']);
+                ->select('product_id', 'sku_id', 'seller_sku', 'title')
+                ->distinct()
+                ->get();
 
             if ($products->isEmpty()) {
                 $this->warn("  ⚠ Tidak ada produk TIKTOK/TOKOPEDIA ACTIVATE untuk akun ini.");
@@ -68,7 +71,7 @@ class SyncTiktokStockCommand extends Command
             foreach ($products as $product) {
                 if ($dryRun) {
                     $skuInfo = $product->seller_sku ?: '(kosong-skip)';
-                    $this->line("  [DRY-RUN] [{$product->platform}] SKU={$skuInfo} | sku_id={$product->sku_id} | {$product->title}");
+                    $this->line("  [DRY-RUN] SKU={$skuInfo} | sku_id={$product->sku_id} | {$product->title}");
                     continue;
                 }
 

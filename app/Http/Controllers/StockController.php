@@ -396,10 +396,13 @@ class StockController extends Controller
 
             foreach ($accounts as $account) {
                 // Ambil semua produk TIKTOK + TOKOPEDIA ACTIVATE
+                // distinct() mencegah duplikat job karena 1 sku_id bisa ada di 2 baris (TIKTOK + TOKOPEDIA)
                 $products = ProdukSaya::where('account_id', $account->id)
                     ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
                     ->where('product_status', 'ACTIVATE')
-                    ->get(['product_id', 'sku_id', 'seller_sku', 'platform']);
+                    ->select('product_id', 'sku_id', 'seller_sku')
+                    ->distinct()
+                    ->get();
 
                 if ($products->isEmpty()) {
                     $skipped[] = $account->seller_name . ' (tidak ada produk TIKTOK/TOKOPEDIA ACTIVATE)';
@@ -460,10 +463,13 @@ class StockController extends Controller
 
         try {
             // Semua TIKTOK + TOKOPEDIA ACTIVATE di-dispatch
+            // distinct() mencegah duplikat job karena 1 sku_id bisa ada di 2 baris (TIKTOK + TOKOPEDIA)
             $products = ProdukSaya::where('account_id', $account->id)
                 ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
                 ->where('product_status', 'ACTIVATE')
-                ->get(['product_id', 'sku_id', 'seller_sku', 'platform']);
+                ->select('product_id', 'sku_id', 'seller_sku')
+                ->distinct()
+                ->get();
 
             $queued = 0;
             foreach ($products as $product) {
@@ -501,6 +507,25 @@ class StockController extends Controller
     {
         if ($request->query('secret') !== config('app.stock_sync_secret')) {
             return response()->json(['status' => 'Unauthorized'], 401);
+        }
+
+        // Guard: jika masih ada jobs pending di queue, skip dispatch
+        // Mencegah penumpukan jobs jika queue worker belum selesai memproses batch sebelumnya
+        try {
+            $pending = \Illuminate\Support\Facades\DB::table('jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->count();
+
+            if ($pending > 0) {
+                return response()->json([
+                    'status'      => 'skipped',
+                    'reason'      => 'Masih ada jobs pending di queue, dispatch dilewati.',
+                    'jobs_pending' => $pending,
+                    'tip'         => 'Tunggu queue worker selesai memproses semua jobs terlebih dahulu.',
+                ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            }
+        } catch (\Throwable $e) {
+            // Tabel jobs belum ada — lanjut saja
         }
 
         return $this->syncAll();
