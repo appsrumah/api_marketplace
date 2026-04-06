@@ -11,7 +11,7 @@ class TiktokApiService
     private string $appSecret;
     private string $apiBase;
     private string $authBase;
-    private string $serviceId;
+    private string $serviceId = '';
 
     public function __construct()
     {
