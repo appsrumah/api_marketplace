@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,6 +55,9 @@ class AuthController extends Controller
 
             // Catat waktu login terakhir
             $user->update(['last_login_at' => now()]);
+
+            // Catat aktivitas login
+            ActivityLog::record('user.login', 'Login berhasil', $user);
 
             $request->session()->regenerate();
 
@@ -121,6 +125,9 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
+        // Catat aktivitas register
+        ActivityLog::record('user.register', 'Super Admin pertama mendaftar', $user);
+
         return redirect()->route('dashboard')
             ->with('success', 'Selamat datang, ' . $user->name . '! Akun Super Admin berhasil dibuat.');
     }
@@ -129,6 +136,9 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        // Catat aktivitas logout sebelum session dihapus
+        ActivityLog::record('user.logout', 'Logout', Auth::user());
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

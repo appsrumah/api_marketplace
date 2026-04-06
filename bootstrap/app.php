@@ -21,8 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Alias middleware
         $middleware->alias([
-            'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+            'super_admin'  => \App\Http\Middleware\EnsureSuperAdmin::class,
             'check.active' => \App\Http\Middleware\EnsureUserIsActive::class,
+            'permission'   => \App\Http\Middleware\RequirePermission::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
