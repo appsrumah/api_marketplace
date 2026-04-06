@@ -18,6 +18,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'stock/cron-sync-all',      // curl cron trigger
             'stock/run-queue',          // curl cron queue worker
         ]);
+
+        // Alias middleware
+        $middleware->alias([
+            'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+            'check.active' => \App\Http\Middleware\EnsureUserIsActive::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
