@@ -23,6 +23,15 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ | CRON — Publik, diamankan dengan secret key (tanpa sesi login)
+ | Dipanggil oleh curl dari cPanel Cron Jobs, bukan oleh browser
+ ═══════════════════════════════════════════════════════════════════════════ */
+Route::prefix('stock')->name('stock.')->group(function () {
+    Route::get('/cron-sync-all', [StockController::class, 'cronSyncAll'])->name('cron-sync-all');
+    Route::get('/run-queue',     [StockController::class, 'runQueue'])->name('run-queue');
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
  | PROTECTED — Semua route di bawah wajib login & akun aktif
  ═══════════════════════════════════════════════════════════════════════════ */
 Route::middleware(['auth', 'check.active'])->group(function () {
@@ -64,8 +73,6 @@ Route::middleware(['auth', 'check.active'])->group(function () {
     Route::prefix('stock')->name('stock.')->group(function () {
         Route::get('/',               [StockController::class, 'dashboard'])->name('dashboard');
         Route::get('/sync-all',       [StockController::class, 'syncAll'])->name('sync-all');
-        Route::get('/cron-sync-all',  [StockController::class, 'cronSyncAll'])->name('cron-sync-all');
-        Route::get('/run-queue',      [StockController::class, 'runQueue'])->name('run-queue');
         Route::post('/run-queue-web', [StockController::class, 'runQueueWeb'])->name('run-queue-web');
         Route::get('/{account}/sync', [StockController::class, 'syncAccount'])->name('sync-account');
         Route::post('/{account}/set-outlet', [StockController::class, 'setOutlet'])->name('set-outlet');
