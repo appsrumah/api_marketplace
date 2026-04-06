@@ -1,0 +1,9 @@
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/olen6374/public_html/app.oleh2indonesia.com
+    - export PHP=/opt/alt/php83/usr/bin/php
+    - $PHP -v
+    - /bin/cp -R . $DEPLOYPATH
+    - cd $DEPLOYPATH && $PHP artisan config:clear
+    - cd $DEPLOYPATH && $PHP artisan route:clear
+    - cd $DEPLOYPATH && $PHP artisan view:clear
