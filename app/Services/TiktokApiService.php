@@ -15,11 +15,11 @@ class TiktokApiService
 
     public function __construct()
     {
-        $this->appKey    = config('services.tiktok.app_key');
-        $this->appSecret = config('services.tiktok.app_secret');
-        $this->apiBase   = config('services.tiktok.api_base');
-        $this->authBase  = config('services.tiktok.auth_base');
-        $this->serviceId = config('services.tiktok.service_id');
+        $this->appKey    = config('services.tiktok.app_key', '');
+        $this->appSecret = config('services.tiktok.app_secret', '');
+        $this->apiBase   = config('services.tiktok.api_base', '');
+        $this->authBase  = config('services.tiktok.auth_base', '');
+        $this->serviceId = config('services.tiktok.service_id', '');
     }
 
     /* ===================================================================
