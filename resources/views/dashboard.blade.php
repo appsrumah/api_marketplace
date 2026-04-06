@@ -84,6 +84,76 @@
     </div>
 </div>
 
+{{-- ===== STOCK SYNC WIDGET ===== --}}
+<div class="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-6 py-4">
+        <div class="flex items-center gap-3">
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 text-white shadow">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-sm font-bold text-slate-900">Sinkronisasi Stok</h2>
+                <p class="text-xs text-slate-500">Update stok otomatis ke TikTok &amp; Tokopedia</p>
+            </div>
+        </div>
+        <a href="{{ route('stock.dashboard') }}"
+           class="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+            Kelola Stok
+        </a>
+    </div>
+    <div class="grid grid-cols-3 divide-x divide-slate-100 px-0 py-0">
+        {{-- Siap Sync --}}
+        <div class="flex items-center gap-3 px-6 py-4">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100">
+                <svg class="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-xl font-bold text-slate-900">{{ number_format($syncStats['siap_sync']) }}</p>
+                <p class="text-xs text-slate-500">Produk Siap Sync</p>
+            </div>
+        </div>
+        {{-- Jobs Pending --}}
+        <div class="flex items-center gap-3 px-6 py-4">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {{ $syncStats['jobs_pending'] > 0 ? 'bg-blue-100' : 'bg-slate-100' }}">
+                <svg class="h-4 w-4 {{ $syncStats['jobs_pending'] > 0 ? 'text-blue-600' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-xl font-bold {{ $syncStats['jobs_pending'] > 0 ? 'text-blue-700' : 'text-slate-900' }}">
+                    {{ number_format($syncStats['jobs_pending']) }}
+                </p>
+                <p class="text-xs text-slate-500">Jobs di Queue</p>
+            </div>
+        </div>
+        {{-- Last Sync --}}
+        <div class="flex items-center gap-3 px-6 py-4">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100">
+                <svg class="h-4 w-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-slate-900">
+                    @if($syncStats['last_sync'])
+                        {{ \Carbon\Carbon::parse($syncStats['last_sync'])->diffForHumans() }}
+                    @else
+                        <span class="text-amber-500">Belum pernah</span>
+                    @endif
+                </p>
+                <p class="text-xs text-slate-500">Terakhir Sync</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- ===== ACCOUNT LIST ===== --}}
 <div class="mt-10">
     <h2 class="text-lg font-bold text-slate-900">Akun Terhubung</h2>

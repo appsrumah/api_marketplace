@@ -16,12 +16,14 @@ class AccountShopTiktok extends Model
         'refresh_token_expire_in',
         'seller_name',
         'seller_base_region',
-        'shop_id',       // ← tambah
-        'shop_name',     // ← tambah
+        'shop_id',
+        'shop_name',
         'shop_cipher',
         'status',
         'token_obtained_at',
-        'last_sync_at',  // ← tambah
+        'last_sync_at',
+        'id_outlet',          // ← ID outlet di sistem POS
+        'last_update_stock',  // ← Waktu terakhir stok di-push ke TikTok
     ];
 
     protected function casts(): array
@@ -30,7 +32,9 @@ class AccountShopTiktok extends Model
             'access_token_expire_in'  => 'datetime',
             'refresh_token_expire_in' => 'datetime',
             'token_obtained_at'       => 'datetime',
-            'last_sync_at'            => 'datetime', // ← tambah
+            'last_sync_at'            => 'datetime',
+            'last_update_stock'       => 'datetime',  // ← tambah
+            'id_outlet'               => 'integer',   // ← tambah
             'access_token'            => 'encrypted',
             'refresh_token'           => 'encrypted',
         ];

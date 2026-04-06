@@ -261,6 +261,80 @@ class TiktokApiService
     }
 
     /* ===================================================================
+     *  UPDATE INVENTORY
+     *  PUT /product/202309/products/{product_id}/inventory/update
+     *
+     *  Header : Content-Type: application/json
+     *           x-tts-access-token: {access_token}
+     *  Params : app_key, sign, timestamp, shop_cipher
+     *  Body   : { "skus": [{ "id": "...", "inventory": [{ "quantity": N }] }] }
+     * =================================================================== */
+    public function updateInventory(
+        string $accessToken,
+        string $shopCipher,
+        string $productId,
+        string $skuId,
+        int    $quantity
+    ): array {
+        $path      = "/product/202309/products/{$productId}/inventory/update";
+        $timestamp = time();
+
+        $queryParams = [
+            'app_key'     => $this->appKey,
+            'timestamp'   => $timestamp,
+            'shop_cipher' => $shopCipher,
+        ];
+
+        $body = [
+            'skus' => [
+                [
+                    'id'        => $skuId,
+                    'inventory' => [['quantity' => $quantity]],
+                ],
+            ],
+        ];
+        $bodyJson = json_encode($body);
+
+        $sign = $this->buildSign($path, $queryParams, $bodyJson);
+
+        $queryParams['sign']         = $sign;
+        $queryParams['access_token'] = $accessToken;
+
+        $url = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Content-Type'       => 'application/json',
+                'x-tts-access-token' => $accessToken,
+            ])
+            ->withBody($bodyJson, 'application/json')
+            ->post($url); // ← GANTI dari put() ke post()
+
+        $data = $response->json();
+
+        if (($data['code'] ?? -1) !== 0) {
+            Log::error('TikTok updateInventory failed', [
+                'product_id' => $productId,
+                'sku_id'     => $skuId,
+                'quantity'   => $quantity,
+                'response'   => $data,
+            ]);
+            throw new \RuntimeException(
+                'TikTok Update Inventory Error [' . ($data['code'] ?? '?') . ']: '
+                    . ($data['message'] ?? 'Unknown error')
+            );
+        }
+
+        Log::info('TikTok updateInventory success', [
+            'product_id' => $productId,
+            'sku_id'     => $skuId,
+            'quantity'   => $quantity,
+        ]);
+
+        return $data['data'] ?? [];
+    }
+
+    /* ===================================================================
      *  AUTH URL — redirect user to TikTok OAuth
      * =================================================================== */
     public function getAuthUrl(): string
