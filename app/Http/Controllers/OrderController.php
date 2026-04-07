@@ -38,8 +38,8 @@ class OrderController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('order_id', 'like', "%{$search}%")
-                  ->orWhere('buyer_name', 'like', "%{$search}%")
-                  ->orWhere('tracking_number', 'like', "%{$search}%");
+                    ->orWhere('buyer_name', 'like', "%{$search}%")
+                    ->orWhere('tracking_number', 'like', "%{$search}%");
             });
         }
 
@@ -154,7 +154,6 @@ class OrderController extends Controller
 
             return redirect()->route('orders.index')
                 ->with('success', "Berhasil sinkronisasi {$totalSaved} order dari {$account->shop_name} ({$totalPages} halaman).");
-
         } catch (\Throwable $e) {
             Log::error('Order sync failed', [
                 'account_id' => $account->id,
@@ -208,7 +207,6 @@ class OrderController extends Controller
                 'search_result' => $orderList[0],
                 'detail'       => $detailResult['orders'][0] ?? null,
             ]);
-
         } catch (\Throwable $e) {
             return response()->json([
                 'status'  => 'error',

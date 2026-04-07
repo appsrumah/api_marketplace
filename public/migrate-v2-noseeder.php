@@ -1,8 +1,11 @@
 <?php
 
 /**
- * migrate-v2.php — Jalankan semua pending migrations (Omni-Channel) via browser
- * Upload ke: public_html/app.oleh2indonesia.com/public/migrate-v2.php
+ * migrate-v2-noseeder.php — Jalankan semua pending migrations (Omni-Channel) via browser
+ * TANPA seeder — hanya CREATE TABLE & ALTER TABLE saja.
+ * Cocok untuk server yang sudah punya data real.
+ *
+ * Upload ke: public_html/app.oleh2indonesia.com/public/migrate-v2-noseeder.php
  * Buka sekali di browser, lalu HAPUS file ini setelah selesai.
  *
  * Cakupan:
@@ -12,7 +15,9 @@
  * - Tabel orders, order_items, product_details
  * - ALTER: users (role_id), account_shop_tiktok (channel_id, warehouse_id, user_id)
  * - ALTER: produk_saya (channel_id)
- * - Seeder: roles + permissions + channels + warehouse + settings
+ * - ALTER: account_shop_tiktok expire columns → DATETIME
+ *
+ * ⚠️ TIDAK ADA seeder / INSERT data — gunakan data real yang sudah ada.
  */
 
 define('LARAVEL_ROOT', dirname(__DIR__));
@@ -417,7 +422,7 @@ try {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 12. ALTER users — add role_id FK
+// 12. ALTER users — add role_id
 // ═══════════════════════════════════════════════════════════════════════════════
 try {
     if (!Schema::hasColumn('users', 'role_id')) {
@@ -469,7 +474,6 @@ try {
 // 15. ALTER account_shop_tiktok — expire columns to DATETIME
 // ═══════════════════════════════════════════════════════════════════════════════
 try {
-    // Check current type — if it's not DATETIME, alter it
     $colType = DB::selectOne("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account_shop_tiktok' AND COLUMN_NAME = 'access_token_expire_in'");
     if ($colType && $colType->DATA_TYPE !== 'datetime') {
         DB::statement("ALTER TABLE account_shop_tiktok MODIFY COLUMN access_token_expire_in DATETIME NULL");
@@ -484,194 +488,39 @@ try {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 16. SEED: Roles + Permissions + Marketplace Channels + Warehouse + Settings
-// ═══════════════════════════════════════════════════════════════════════════════
-try {
-    if (DB::table('roles')->count() === 0) {
-        $now = now();
-        $roles = [
-            ['name' => 'super_admin',  'label' => 'Super Admin',  'level' => 100],
-            ['name' => 'admin',        'label' => 'Admin',        'level' => 80],
-            ['name' => 'manager',      'label' => 'Manager',      'level' => 60],
-            ['name' => 'staff_admin',  'label' => 'Staff Admin',  'level' => 40],
-            ['name' => 'finance',      'label' => 'Finance',      'level' => 35],
-            ['name' => 'cs',           'label' => 'Customer Service', 'level' => 25],
-            ['name' => 'operator',     'label' => 'Operator',     'level' => 20],
-        ];
-        foreach ($roles as $r) {
-            DB::table('roles')->insert(array_merge($r, ['created_at' => $now, 'updated_at' => $now]));
-        }
-        $results[] = ['status' => '✅', 'msg' => 'Seeded ' . count($roles) . ' roles'];
-    } else {
-        $results[] = ['status' => 'ℹ️', 'msg' => 'Roles sudah terisi — dilewati'];
-    }
-} catch (\Throwable $e) {
-    $results[] = ['status' => '❌', 'msg' => 'Gagal seed roles: ' . $e->getMessage()];
-}
-
-try {
-    if (DB::table('permissions')->count() === 0) {
-        $now = now();
-        $permissions = [
-            // dashboard
-            ['name' => 'dashboard.view', 'label' => 'Lihat Dashboard', 'group' => 'dashboard'],
-            // users
-            ['name' => 'users.view', 'label' => 'Lihat Pengguna', 'group' => 'users'],
-            ['name' => 'users.create', 'label' => 'Tambah Pengguna', 'group' => 'users'],
-            ['name' => 'users.edit', 'label' => 'Edit Pengguna', 'group' => 'users'],
-            ['name' => 'users.delete', 'label' => 'Hapus Pengguna', 'group' => 'users'],
-            // products
-            ['name' => 'products.view', 'label' => 'Lihat Produk', 'group' => 'products'],
-            ['name' => 'products.create', 'label' => 'Tambah Produk', 'group' => 'products'],
-            ['name' => 'products.edit', 'label' => 'Edit Produk', 'group' => 'products'],
-            ['name' => 'products.delete', 'label' => 'Hapus Produk', 'group' => 'products'],
-            ['name' => 'products.sync', 'label' => 'Sinkron Produk', 'group' => 'products'],
-            // orders
-            ['name' => 'orders.view', 'label' => 'Lihat Pesanan', 'group' => 'orders'],
-            ['name' => 'orders.process', 'label' => 'Proses Pesanan', 'group' => 'orders'],
-            ['name' => 'orders.cancel', 'label' => 'Batalkan Pesanan', 'group' => 'orders'],
-            ['name' => 'orders.sync', 'label' => 'Sinkron Pesanan', 'group' => 'orders'],
-            // stock
-            ['name' => 'stock.view', 'label' => 'Lihat Stok', 'group' => 'stock'],
-            ['name' => 'stock.sync', 'label' => 'Sinkron Stok', 'group' => 'stock'],
-            ['name' => 'stock.manage', 'label' => 'Kelola Stok', 'group' => 'stock'],
-            // channels
-            ['name' => 'channels.view', 'label' => 'Lihat Channel', 'group' => 'channels'],
-            ['name' => 'channels.manage', 'label' => 'Kelola Channel', 'group' => 'channels'],
-            ['name' => 'channels.connect', 'label' => 'Hubungkan Channel', 'group' => 'channels'],
-            ['name' => 'channels.disconnect', 'label' => 'Putuskan Channel', 'group' => 'channels'],
-            // warehouses
-            ['name' => 'warehouses.view', 'label' => 'Lihat Gudang', 'group' => 'warehouses'],
-            ['name' => 'warehouses.manage', 'label' => 'Kelola Gudang', 'group' => 'warehouses'],
-            // reports
-            ['name' => 'reports.view', 'label' => 'Lihat Laporan', 'group' => 'reports'],
-            ['name' => 'reports.export', 'label' => 'Export Laporan', 'group' => 'reports'],
-            // settings
-            ['name' => 'settings.view', 'label' => 'Lihat Pengaturan', 'group' => 'settings'],
-            ['name' => 'settings.edit', 'label' => 'Edit Pengaturan', 'group' => 'settings'],
-            ['name' => 'activity_logs.view', 'label' => 'Lihat Log Aktivitas', 'group' => 'settings'],
-            ['name' => 'activity_logs.clear', 'label' => 'Hapus Log Aktivitas', 'group' => 'settings'],
-        ];
-        foreach ($permissions as $p) {
-            DB::table('permissions')->insert(array_merge($p, ['created_at' => $now, 'updated_at' => $now]));
-        }
-        $results[] = ['status' => '✅', 'msg' => 'Seeded ' . count($permissions) . ' permissions'];
-    } else {
-        $results[] = ['status' => 'ℹ️', 'msg' => 'Permissions sudah terisi — dilewati'];
-    }
-} catch (\Throwable $e) {
-    $results[] = ['status' => '❌', 'msg' => 'Gagal seed permissions: ' . $e->getMessage()];
-}
-
-// Seed Marketplace Channels
-try {
-    if (DB::table('marketplace_channels')->count() === 0) {
-        $now = now();
-        $channels = [
-            ['code' => 'TIKTOK',     'name' => 'TikTok Shop',     'color' => '#000000', 'sort_order' => 1],
-            ['code' => 'SHOPEE',     'name' => 'Shopee',          'color' => '#EE4D2D', 'sort_order' => 2],
-            ['code' => 'TOKOPEDIA',  'name' => 'Tokopedia',       'color' => '#42B549', 'sort_order' => 3],
-            ['code' => 'LAZADA',     'name' => 'Lazada',          'color' => '#0F146D', 'sort_order' => 4],
-            ['code' => 'BUKALAPAK',  'name' => 'Bukalapak',       'color' => '#E31E52', 'sort_order' => 5],
-            ['code' => 'BLIBLI',     'name' => 'Blibli',          'color' => '#0095DA', 'sort_order' => 6],
-            ['code' => 'WEBSITE',    'name' => 'Website / WooCommerce', 'color' => '#96588A', 'sort_order' => 7],
-            ['code' => 'OFFLINE',    'name' => 'Offline / POS',   'color' => '#6b7280', 'sort_order' => 8],
-        ];
-        foreach ($channels as $c) {
-            DB::table('marketplace_channels')->insert(array_merge($c, ['is_active' => 1, 'created_at' => $now, 'updated_at' => $now]));
-        }
-        $results[] = ['status' => '✅', 'msg' => 'Seeded ' . count($channels) . ' marketplace channels'];
-    } else {
-        $results[] = ['status' => 'ℹ️', 'msg' => 'Marketplace channels sudah terisi — dilewati'];
-    }
-} catch (\Throwable $e) {
-    $results[] = ['status' => '❌', 'msg' => 'Gagal seed channels: ' . $e->getMessage()];
-}
-
-// Seed Default Warehouse
-try {
-    if (DB::table('warehouses')->count() === 0) {
-        DB::table('warehouses')->insert([
-            'name'       => 'Gudang Utama',
-            'code'       => 'WH-MAIN',
-            'is_default' => 1,
-            'is_active'  => 1,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        $results[] = ['status' => '✅', 'msg' => 'Seeded default warehouse'];
-    } else {
-        $results[] = ['status' => 'ℹ️', 'msg' => 'Warehouses sudah terisi — dilewati'];
-    }
-} catch (\Throwable $e) {
-    $results[] = ['status' => '❌', 'msg' => 'Gagal seed warehouse: ' . $e->getMessage()];
-}
-
-// Seed System Settings
-try {
-    if (DB::table('system_settings')->count() === 0) {
-        $now = now();
-        $settings = [
-            ['key' => 'app_name', 'value' => 'Kios Q Omni-Channel', 'type' => 'string', 'group' => 'general', 'label' => 'Nama Aplikasi'],
-            ['key' => 'default_currency', 'value' => 'IDR', 'type' => 'string', 'group' => 'general', 'label' => 'Mata Uang Default'],
-            ['key' => 'sync_interval_minutes', 'value' => '30', 'type' => 'integer', 'group' => 'sync', 'label' => 'Interval Sinkronisasi (menit)'],
-            ['key' => 'auto_sync_stock', 'value' => '1', 'type' => 'boolean', 'group' => 'sync', 'label' => 'Auto Sinkron Stok'],
-            ['key' => 'auto_sync_orders', 'value' => '1', 'type' => 'boolean', 'group' => 'sync', 'label' => 'Auto Sinkron Pesanan'],
-            ['key' => 'stock_buffer', 'value' => '0', 'type' => 'integer', 'group' => 'stock', 'label' => 'Buffer Stok'],
-            ['key' => 'low_stock_threshold', 'value' => '5', 'type' => 'integer', 'group' => 'stock', 'label' => 'Batas Stok Rendah'],
-        ];
-        foreach ($settings as $s) {
-            DB::table('system_settings')->insert(array_merge($s, ['created_at' => $now, 'updated_at' => $now]));
-        }
-        $results[] = ['status' => '✅', 'msg' => 'Seeded ' . count($settings) . ' system settings'];
-    } else {
-        $results[] = ['status' => 'ℹ️', 'msg' => 'System settings sudah terisi — dilewati'];
-    }
-} catch (\Throwable $e) {
-    $results[] = ['status' => '❌', 'msg' => 'Gagal seed settings: ' . $e->getMessage()];
-}
-
-// Map existing users.role → role_id
-try {
-    $usersWithoutRoleId = DB::table('users')->whereNull('role_id')->count();
-    if ($usersWithoutRoleId > 0 && Schema::hasColumn('users', 'role_id') && Schema::hasTable('roles')) {
-        $roleMap = DB::table('roles')->pluck('id', 'name');
-        $updated = 0;
-        foreach ($roleMap as $name => $id) {
-            $count = DB::table('users')->where('role', $name)->whereNull('role_id')->update(['role_id' => $id]);
-            $updated += $count;
-        }
-        $results[] = ['status' => '✅', 'msg' => "Mapped role_id for {$updated} users"];
-    } else {
-        $results[] = ['status' => 'ℹ️', 'msg' => 'Semua users sudah punya role_id'];
-    }
-} catch (\Throwable $e) {
-    $results[] = ['status' => '❌', 'msg' => 'Gagal map role_id: ' . $e->getMessage()];
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // VERIFIKASI
 // ═══════════════════════════════════════════════════════════════════════════════
 $checks = [
-    'roles'               => Schema::hasTable('roles'),
-    'permissions'          => Schema::hasTable('permissions'),
-    'role_permissions'     => Schema::hasTable('role_permissions'),
-    'marketplace_channels' => Schema::hasTable('marketplace_channels'),
-    'warehouses'           => Schema::hasTable('warehouses'),
-    'channel_accounts'     => Schema::hasTable('channel_accounts'),
-    'activity_logs'        => Schema::hasTable('activity_logs'),
-    'system_settings'      => Schema::hasTable('system_settings'),
-    'orders'               => Schema::hasTable('orders'),
-    'order_items'          => Schema::hasTable('order_items'),
-    'product_details'      => Schema::hasTable('product_details'),
-    'col: users.role_id'   => Schema::hasColumn('users', 'role_id'),
-    'col: ast.channel_id'  => Schema::hasColumn('account_shop_tiktok', 'channel_id'),
+    'roles'                  => Schema::hasTable('roles'),
+    'permissions'            => Schema::hasTable('permissions'),
+    'role_permissions'       => Schema::hasTable('role_permissions'),
+    'marketplace_channels'   => Schema::hasTable('marketplace_channels'),
+    'warehouses'             => Schema::hasTable('warehouses'),
+    'channel_accounts'       => Schema::hasTable('channel_accounts'),
+    'activity_logs'          => Schema::hasTable('activity_logs'),
+    'system_settings'        => Schema::hasTable('system_settings'),
+    'orders'                 => Schema::hasTable('orders'),
+    'order_items'            => Schema::hasTable('order_items'),
+    'product_details'        => Schema::hasTable('product_details'),
+    'col: users.role_id'     => Schema::hasColumn('users', 'role_id'),
+    'col: ast.channel_id'   => Schema::hasColumn('account_shop_tiktok', 'channel_id'),
     'col: ast.warehouse_id' => Schema::hasColumn('account_shop_tiktok', 'warehouse_id'),
+    'col: ast.user_id'      => Schema::hasColumn('account_shop_tiktok', 'user_id'),
     'col: produk.channel_id' => Schema::hasColumn('produk_saya', 'channel_id'),
-    // existing
-    'jobs'                 => Schema::hasTable('jobs'),
-    'sessions'             => Schema::hasTable('sessions'),
+    // existing tables
+    'jobs'                   => Schema::hasTable('jobs'),
+    'sessions'               => Schema::hasTable('sessions'),
 ];
+
+// Hitung statistik
+$totalOps  = count($results);
+$successOps = count(array_filter($results, fn($r) => $r['status'] === '✅'));
+$skipOps    = count(array_filter($results, fn($r) => $r['status'] === 'ℹ️'));
+$failOps    = count(array_filter($results, fn($r) => $r['status'] === '❌'));
+
+$totalChecks = count($checks);
+$passChecks  = count(array_filter($checks));
+$failChecks  = $totalChecks - $passChecks;
 
 ?>
 <!DOCTYPE html>
@@ -679,7 +528,7 @@ $checks = [
 
 <head>
     <meta charset="UTF-8">
-    <title>Migration v2 — Omni-Channel</title>
+    <title>Migration v2 (No Seeder) — Omni-Channel</title>
     <style>
         body {
             font-family: 'Segoe UI', monospace;
@@ -747,6 +596,53 @@ $checks = [
             border-radius: 6px;
         }
 
+        .info-box {
+            background: #0c4a6e;
+            color: #7dd3fc;
+            padding: 12px 16px;
+            border-left: 4px solid #0284c7;
+            margin: 16px 0;
+            border-radius: 6px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        .stat-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px 20px;
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-card .number {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .stat-ok .number {
+            color: #4ade80;
+        }
+
+        .stat-skip .number {
+            color: #94a3b8;
+        }
+
+        .stat-err .number {
+            color: #f87171;
+        }
+
         .badge {
             display: inline-block;
             font-size: 11px;
@@ -767,17 +663,36 @@ $checks = [
 </head>
 
 <body>
-    <h2>🚀 Migration v2 — Kios Q Omni-Channel Platform</h2>
+    <h2>🚀 Migration v2 (No Seeder) — Kios Q Omni-Channel Platform</h2>
     <p style="color:#64748b">Executed at: <?= date('Y-m-d H:i:s') ?></p>
 
-    <h3>📋 Hasil Eksekusi (<?= count($results) ?> operasi)</h3>
+    <div class="info-box">
+        ℹ️ <strong>Mode: Tanpa Seeder</strong> — Hanya CREATE TABLE & ALTER TABLE. Data real tidak diubah.
+    </div>
+
+    <div class="stats">
+        <div class="stat-card stat-ok">
+            <div class="number"><?= $successOps ?></div>
+            <div class="label">✅ Berhasil</div>
+        </div>
+        <div class="stat-card stat-skip">
+            <div class="number"><?= $skipOps ?></div>
+            <div class="label">ℹ️ Dilewati</div>
+        </div>
+        <div class="stat-card stat-err">
+            <div class="number"><?= $failOps ?></div>
+            <div class="label">❌ Gagal</div>
+        </div>
+    </div>
+
+    <h3>📋 Hasil Eksekusi (<?= $totalOps ?> operasi)</h3>
     <?php foreach ($results as $r): ?>
         <div class="<?= $r['status'] === '✅' ? 'ok' : ($r['status'] === '❌' ? 'err' : 'inf') ?>">
             <?= htmlspecialchars($r['status'] . ' ' . $r['msg']) ?>
         </div>
     <?php endforeach; ?>
 
-    <h3>🔍 Verifikasi Tabel & Kolom</h3>
+    <h3>🔍 Verifikasi Tabel & Kolom (<?= $passChecks ?>/<?= $totalChecks ?> ✅)</h3>
     <table>
         <tr>
             <th>Tabel / Kolom</th>

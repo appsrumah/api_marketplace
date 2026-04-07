@@ -97,7 +97,6 @@ class ProductDetailController extends Controller
 
             return redirect()->route('products.detail', $productId)
                 ->with('success', 'Produk berhasil diupdate di TikTok.');
-
         } catch (\Throwable $e) {
             Log::error('Product edit failed', [
                 'product_id' => $productId,
@@ -128,7 +127,6 @@ class ProductDetailController extends Controller
                 'message' => 'Berhasil mengambil detail produk dari TikTok API.',
                 'data'    => $result,
             ]);
-
         } catch (\Throwable $e) {
             return response()->json([
                 'status'  => 'error',
