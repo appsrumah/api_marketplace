@@ -225,9 +225,11 @@ class OrderController extends Controller
             return 0;
         }
 
-        $payment  = $apiOrder['payment'] ?? [];
-        $shipping = $apiOrder['shipping'] ?? [];
-        $buyer    = $apiOrder['buyer'] ?? [];
+        $payment   = $apiOrder['payment'] ?? [];
+        $shipping  = $apiOrder['shipping'] ?? [];
+        $buyer     = $apiOrder['buyer'] ?? [];
+        // TikTok API v202507: recipient_address is at order root level
+        $recipient = $apiOrder['recipient_address'] ?? $shipping['recipient_address'] ?? [];
 
         $order = Order::updateOrCreate(
             [
@@ -239,14 +241,18 @@ class OrderController extends Controller
                 'warehouse_id'            => $account->warehouse_id,
                 'platform'                => 'TIKTOK',
                 'order_status'            => $apiOrder['status'] ?? null,
-                'buyer_user_id'           => $buyer['user_id'] ?? null,
-                'buyer_name'              => $buyer['first_name'] ?? null,
-                'buyer_phone'             => $buyer['phone_number'] ?? null,
+                // v202507: buyer_uid at root; v202309: buyer.user_id
+                'buyer_user_id'           => $apiOrder['buyer_uid'] ?? $buyer['user_id'] ?? $buyer['buyer_uid'] ?? null,
+                // v202507: recipient_address.name; v202309: buyer.first_name
+                'buyer_name'              => ($recipient['name'] ?? null)
+                    ?: ($buyer['buyer_name'] ?? $buyer['first_name'] ?? null),
+                'buyer_phone'             => ($recipient['phone_number'] ?? null)
+                    ?: ($buyer['phone_number'] ?? null),
                 'buyer_message'           => $apiOrder['buyer_message'] ?? null,
                 'shipping_type'           => $shipping['shipping_type'] ?? null,
                 'shipping_provider'       => $shipping['shipping_provider_name'] ?? null,
                 'tracking_number'         => $shipping['tracking_number'] ?? null,
-                'shipping_address'        => $shipping['recipient_address'] ?? null,
+                'shipping_address'        => !empty($recipient) ? $recipient : ($shipping['recipient_address'] ?? null),
                 'total_amount'            => $payment['total_amount'] ?? 0,
                 'subtotal_amount'         => $payment['sub_total'] ?? 0,
                 'shipping_fee'            => $payment['shipping_fee'] ?? 0,

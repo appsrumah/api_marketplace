@@ -216,17 +216,22 @@ try {
     if (!Schema::hasTable('activity_logs')) {
         DB::statement("
             CREATE TABLE activity_logs (
-                id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                user_id     BIGINT UNSIGNED NULL,
-                action      VARCHAR(100)    NOT NULL,
-                description TEXT            NULL,
-                metadata    JSON            NULL,
-                ip_address  VARCHAR(45)     NULL,
-                user_agent  VARCHAR(500)    NULL,
-                created_at  TIMESTAMP       NULL,
-                updated_at  TIMESTAMP       NULL,
+                id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                user_id      BIGINT UNSIGNED NULL,
+                action       VARCHAR(100)    NOT NULL,
+                subject_type VARCHAR(255)    NULL,
+                subject_id   BIGINT          NULL,
+                description  TEXT            NULL,
+                old_values   JSON            NULL,
+                new_values   JSON            NULL,
+                level        VARCHAR(20)     NOT NULL DEFAULT 'info',
+                ip_address   VARCHAR(45)     NULL,
+                user_agent   VARCHAR(500)    NULL,
+                created_at   TIMESTAMP       NULL,
                 INDEX idx_al_user_id (user_id),
                 INDEX idx_al_action (action),
+                INDEX idx_al_subject (subject_type, subject_id),
+                INDEX idx_al_level (level),
                 INDEX idx_al_created (created_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
