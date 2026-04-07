@@ -279,7 +279,7 @@ class StockController extends Controller
      * ================================================================ */
     public function dashboard(): \Illuminate\View\View
     {
-        $accounts = AccountShopTiktok::all()->map(function ($account) {
+        $accounts = AccountShopTiktok::forUser()->get()->map(function ($account) {
             $base = ProdukSaya::where('account_id', $account->id)
                 ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
                 ->where('product_status', 'ACTIVATE');
@@ -318,7 +318,9 @@ class StockController extends Controller
         $totalSiapSync = $accounts->sum('siap_sync');
         $totalTanpaSku = $accounts->sum('tanpa_sku');
 
+        $userAccountIds = AccountShopTiktok::forUser()->pluck('id');
         $produkSiapSync = ProdukSaya::with('account')
+            ->whereIn('account_id', $userAccountIds)
             ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
             ->where('product_status', 'ACTIVATE')
             ->whereNotNull('seller_sku')
@@ -389,7 +391,7 @@ class StockController extends Controller
         @set_time_limit(300);
 
         try {
-            $accounts = AccountShopTiktok::whereNotNull('id_outlet')->get();
+            $accounts = AccountShopTiktok::forUser()->whereNotNull('id_outlet')->get();
             $queued   = 0;
             $skipped  = [];
             $detail   = [];

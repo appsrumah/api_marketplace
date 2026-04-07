@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDetailController;
@@ -68,8 +69,19 @@ Route::middleware(['auth', 'check.active'])->group(function () {
         Route::post('/internal-callback', [TiktokAuthController::class, 'internalCallback'])->name('internal-callback');
     });
 
+    /* ---------- Pusat Integrasi Marketplace ---------- */
+    Route::prefix('integrations')->name('integrations.')->group(function () {
+        Route::get('/',                        [IntegrationController::class, 'index'])->name('index');
+        Route::get('/{account}',               [IntegrationController::class, 'show'])->name('show');
+        Route::post('/{channel}/connect',      [IntegrationController::class, 'connect'])->name('connect');
+        Route::put('/{account}/update',        [IntegrationController::class, 'update'])->name('update');
+        Route::post('/{account}/refresh-token',[IntegrationController::class, 'refreshToken'])->name('refresh-token');
+        Route::delete('/{account}/disconnect', [IntegrationController::class, 'disconnect'])->name('disconnect');
+    });
+
     /* ---------- Products ---------- */
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+    Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 
     /* ---------- Product Detail (from TikTok API) ---------- */
     Route::prefix('products')->name('products.')->group(function () {

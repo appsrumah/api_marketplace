@@ -69,6 +69,21 @@ class AccountShopTiktok extends Model
         return $this->belongsTo(Warehouse::class, 'warehouse_id');
     }
 
+    /* ---------- Scopes ---------- */
+
+    /**
+     * Scope: filter akun berdasar user login.
+     * Super Admin melihat semua; role lain hanya melihat akun milik sendiri.
+     */
+    public function scopeForUser($query, ?\App\Models\User $user = null)
+    {
+        $resolved = $user ?? \Illuminate\Support\Facades\Auth::user();
+        if ($resolved instanceof \App\Models\User && !$resolved->isSuperAdmin()) {
+            return $query->where('user_id', $resolved->id);
+        }
+        return $query;
+    }
+
     /* ---------- Helpers ---------- */
 
     public function isTokenExpired(): bool

@@ -21,7 +21,10 @@ class OrderController extends Controller
      * =================================================================== */
     public function index(Request $request)
     {
-        $query = Order::with(['account', 'items']);
+        // User-scoped: hanya order dari akun milik user ini
+        $accountIds = AccountShopTiktok::forUser()->pluck('id');
+
+        $query = Order::with(['account', 'items'])->whereIn('account_id', $accountIds);
 
         // Filter: status
         if ($request->filled('status') && $request->status !== 'ALL') {
@@ -53,16 +56,18 @@ class OrderController extends Controller
 
         $orders = $query->latest('tiktok_create_time')->paginate(25)->withQueryString();
 
-        // Stats
+        // Stats (user-scoped)
+        $statsBase = Order::whereIn('account_id', $accountIds);
         $stats = [
-            'total'             => Order::count(),
-            'awaiting_shipment' => Order::where('order_status', 'AWAITING_SHIPMENT')->count(),
-            'in_transit'        => Order::where('order_status', 'IN_TRANSIT')->count(),
-            'completed'         => Order::where('order_status', 'COMPLETED')->count(),
-            'cancelled'         => Order::where('order_status', 'CANCELLED')->count(),
+            'total'             => (clone $statsBase)->count(),
+            'awaiting_shipment' => (clone $statsBase)->where('order_status', 'AWAITING_SHIPMENT')->count(),
+            'in_transit'        => (clone $statsBase)->where('order_status', 'IN_TRANSIT')->count(),
+            'completed'         => (clone $statsBase)->where('order_status', 'COMPLETED')->count(),
+            'cancelled'         => (clone $statsBase)->where('order_status', 'CANCELLED')->count(),
         ];
 
-        $accounts = AccountShopTiktok::where('status', 'active')
+        $accounts = AccountShopTiktok::forUser()
+            ->where('status', 'active')
             ->orderBy('shop_name')
             ->get(['id', 'shop_name', 'seller_name']);
 

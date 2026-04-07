@@ -24,8 +24,10 @@ class MarketplaceChannel extends Model
 
     protected $fillable = [
         'name',
-        'slug',
+        'code',        // Kolom di DB: 'code' (bukan 'slug')
+        'slug',        // Backward-compat jika migration lama pakai slug
         'logo',
+        'logo_url',
         'color',
         'bg_color',
         'text_color',
@@ -36,6 +38,12 @@ class MarketplaceChannel extends Model
         'sort_order',
         'notes',
     ];
+
+    /** Ambil identifier (code atau slug, tergantung skema DB) */
+    public function getIdentifierAttribute(): string
+    {
+        return $this->code ?? $this->slug ?? strtolower($this->name);
+    }
 
     protected function casts(): array
     {

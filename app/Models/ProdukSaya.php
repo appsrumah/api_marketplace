@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ProdukSaya extends Model
 {
@@ -43,6 +44,12 @@ class ProdukSaya extends Model
     public function channel(): BelongsTo
     {
         return $this->belongsTo(MarketplaceChannel::class, 'channel_id');
+    }
+
+    /** Detail produk dari TikTok API (join by product_id) */
+    public function detail(): HasOne
+    {
+        return $this->hasOne(ProductDetail::class, 'product_id', 'product_id');
     }
 
     /* ---------- Scopes ---------- */

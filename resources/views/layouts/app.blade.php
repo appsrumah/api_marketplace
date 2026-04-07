@@ -55,6 +55,11 @@
                             <svg class="mr-1.5 inline h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             Sinkron Stok
                         </a>
+                        <a href="{{ route('integrations.index') }}"
+                           class="rounded-lg px-4 py-2 text-sm font-medium transition {{ request()->routeIs('integrations.*') ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800' }}">
+                            <svg class="mr-1.5 inline h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                            Integrasi
+                        </a>
 
                         {{-- ===== USER DROPDOWN ===== --}}
                         <div x-data="{ open: false }" class="relative ml-2" @keydown.escape="open = false">
