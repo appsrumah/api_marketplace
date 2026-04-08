@@ -9,6 +9,18 @@
         <h1 class="text-2xl font-bold text-slate-900">Pesanan</h1>
         <p class="mt-1 text-sm text-slate-500">Semua pesanan dari akun marketplace yang terhubung.</p>
     </div>
+    {{-- Push ke POS Button --}}
+    @if($stats['unsynced_pos'] > 0)
+        <form method="POST" action="{{ route('orders.push-all-pos') }}">
+            @csrf
+            <button type="submit"
+                    onclick="return confirm('Push {{ $stats['unsynced_pos'] }} order yang belum sync ke POS?\n(Maks 50 order per sekali push)')"
+                    class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                Push ke POS ({{ $stats['unsynced_pos'] }})
+            </button>
+        </form>
+    @endif
     {{-- Sync Button --}}
     <div x-data="{ open: false }" class="relative">
         <button @click="open = !open" @click.away="open = false"
@@ -53,6 +65,11 @@
     <span class="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
         <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span> Batal: {{ number_format($stats['cancelled']) }}
     </span>
+    @if($stats['unsynced_pos'] > 0)
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span> Belum Sync POS: {{ number_format($stats['unsynced_pos']) }}
+        </span>
+    @endif
 </div>
 
 {{-- ===== FILTER BAR ===== --}}
@@ -197,11 +214,27 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-center">
-                                <a href="{{ route('orders.show', $order) }}"
-                                   class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-blue-50 hover:text-blue-700">
-                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                    Detail
-                                </a>
+                                <div class="flex items-center justify-center gap-1.5">
+                                    <a href="{{ route('orders.show', $order) }}"
+                                       class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-blue-50 hover:text-blue-700">
+                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        Detail
+                                    </a>
+                                    @if($order->is_synced_to_pos)
+                                        <span title="Sudah di-sync ke POS (SO: {{ $order->pos_order_id }})"
+                                              class="inline-flex items-center rounded-lg bg-green-50 p-1.5 text-green-600 cursor-default">
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        </span>
+                                    @elseif(!in_array($order->order_status, ['UNPAID', 'CANCELLED']))
+                                        <form method="POST" action="{{ route('orders.push-pos', $order) }}">
+                                            @csrf
+                                            <button type="submit" title="Push ke POS"
+                                                    class="inline-flex items-center rounded-lg bg-emerald-50 p-1.5 text-emerald-600 transition hover:bg-emerald-100">
+                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @endforeach

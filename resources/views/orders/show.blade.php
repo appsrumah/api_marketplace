@@ -192,10 +192,66 @@
                 <div class="flex justify-between"><span class="text-slate-500">Platform</span>
                     <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">{{ $order->platform }}</span>
                 </div>
+            </div>
+        </div>
+
+        {{-- POS Integration Card --}}
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="border-b border-slate-100 bg-slate-50/50 px-5 py-3.5 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-slate-700">Sinkron ke POS</h2>
                 @if($order->is_synced_to_pos)
-                    <div class="flex justify-between"><span class="text-slate-500">POS Sync</span>
-                        <span class="inline-flex items-center gap-1 text-green-600 text-xs"><svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Sinkron</span>
+                    <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-[10px] font-semibold text-green-700">
+                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        Tersinkron
+                    </span>
+                @else
+                    <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-700">Belum Sync</span>
+                @endif
+            </div>
+            <div class="px-5 py-4">
+                @if($order->is_synced_to_pos)
+                    <div class="space-y-2.5 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">SO ID (POS)</span>
+                            <span class="font-mono font-semibold text-slate-900">{{ $order->pos_order_id ?: '-' }}</span>
+                        </div>
+                        @if($order->synced_to_pos_at)
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Waktu Sync</span>
+                                <span class="text-xs text-slate-700">{{ $order->synced_to_pos_at->format('d M Y H:i') }}</span>
+                            </div>
+                        @endif
+                        <div class="mt-1 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-xs text-green-700">
+                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Data order sudah masuk ke database POS.
+                        </div>
                     </div>
+                @elseif(in_array($order->order_status, ['UNPAID', 'CANCELLED']))
+                    <div class="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500">
+                        <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                        Order <strong class="text-slate-700">{{ $order->status_label }}</strong> tidak dapat di-push ke POS.
+                    </div>
+                @else
+                    <p class="mb-4 text-xs text-slate-500 leading-relaxed">
+                        Klik tombol di bawah untuk mengirim data order ini ke database POS sebagai <strong>Sales Order (SO)</strong>.
+                        Item dicocokkan berdasarkan <strong>Seller SKU</strong> yang sesuai di POS.
+                    </p>
+                    @if(!$order->account?->id_outlet)
+                        <div class="mb-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+                            <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            Akun belum punya ID Outlet. Atur di <a href="{{ route('integrations.show', $order->account) }}" class="font-semibold underline">halaman Integrasi</a>.
+                        </div>
+                    @endif
+                    <form method="POST" action="{{ route('orders.push-pos', $order) }}">
+                        @csrf
+                        <button type="submit"
+                                onclick="return confirm('Push order ini ke POS?\n\nItem dicocokkan berdasarkan Seller SKU.\nPastikan akun sudah memiliki ID Outlet.')"
+                                class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                @if(!$order->account?->id_outlet) disabled @endif>
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                            Push ke POS Sekarang
+                        </button>
+                    </form>
                 @endif
             </div>
         </div>

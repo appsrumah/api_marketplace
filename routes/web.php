@@ -75,7 +75,7 @@ Route::middleware(['auth', 'check.active'])->group(function () {
         Route::get('/{account}',               [IntegrationController::class, 'show'])->name('show');
         Route::post('/{channel}/connect',      [IntegrationController::class, 'connect'])->name('connect');
         Route::put('/{account}/update',        [IntegrationController::class, 'update'])->name('update');
-        Route::post('/{account}/refresh-token',[IntegrationController::class, 'refreshToken'])->name('refresh-token');
+        Route::post('/{account}/refresh-token', [IntegrationController::class, 'refreshToken'])->name('refresh-token');
         Route::delete('/{account}/disconnect', [IntegrationController::class, 'disconnect'])->name('disconnect');
     });
 
@@ -93,10 +93,12 @@ Route::middleware(['auth', 'check.active'])->group(function () {
 
     /* ---------- Orders ---------- */
     Route::prefix('orders')->name('orders.')->group(function () {
-        Route::get('/',                     [OrderController::class, 'index'])->name('index');
-        Route::get('/{order}',              [OrderController::class, 'show'])->name('show');
-        Route::post('/{account}/sync',      [OrderController::class, 'syncOrders'])->name('sync');
-        Route::get('/test/{account}',       [OrderController::class, 'testFetchOne'])->name('test-fetch');
+        Route::get('/',                          [OrderController::class, 'index'])->name('index');
+        Route::post('/push-all-pos',             [OrderController::class, 'pushAllToPos'])->name('push-all-pos');
+        Route::get('/{order}',                   [OrderController::class, 'show'])->name('show');
+        Route::post('/{order}/push-pos',         [OrderController::class, 'pushToPos'])->name('push-pos');
+        Route::post('/{account}/sync',           [OrderController::class, 'syncOrders'])->name('sync');
+        Route::get('/test/{account}',            [OrderController::class, 'testFetchOne'])->name('test-fetch');
     });
 
     /* ---------- Stock Sync ---------- */

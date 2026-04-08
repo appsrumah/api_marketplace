@@ -396,7 +396,7 @@ class TiktokApiService
     }
 
     /* ===================================================================
-     *  GET ORDER DETAIL  — GET /order/202507/orders
+     *  GET ORDER DETAIL  — GET /order/202309/orders
      *
      *  Query  : app_key, sign, timestamp, ids (comma-sep, max 50), shop_cipher
      *  Header : x-tts-access-token, Content-Type: application/json
@@ -406,7 +406,7 @@ class TiktokApiService
         string $shopCipher,
         array  $orderIds
     ): array {
-        $path      = '/order/202507/orders';
+        $path      = '/order/202309/orders';
         $timestamp = time();
 
         $queryParams = [

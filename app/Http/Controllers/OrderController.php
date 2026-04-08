@@ -6,6 +6,7 @@ use App\Models\AccountShopTiktok;
 use App\Models\ActivityLog;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Services\PosOrderService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -13,7 +14,8 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
     public function __construct(
-        private TiktokApiService $tiktokService
+        private TiktokApiService $tiktokService,
+        private PosOrderService  $posService
     ) {}
 
     /* ===================================================================
@@ -64,6 +66,10 @@ class OrderController extends Controller
             'in_transit'        => (clone $statsBase)->where('order_status', 'IN_TRANSIT')->count(),
             'completed'         => (clone $statsBase)->where('order_status', 'COMPLETED')->count(),
             'cancelled'         => (clone $statsBase)->where('order_status', 'CANCELLED')->count(),
+            'unsynced_pos'      => (clone $statsBase)
+                ->where('is_synced_to_pos', false)
+                ->whereNotIn('order_status', ['UNPAID', 'CANCELLED'])
+                ->count(),
         ];
 
         $accounts = AccountShopTiktok::forUser()
@@ -218,6 +224,64 @@ class OrderController extends Controller
                 'message' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /* ===================================================================
+     *  PUSH TO POS — Kirim 1 order ke database POS
+     * =================================================================== */
+    public function pushToPos(Order $order)
+    {
+        $accountIds = AccountShopTiktok::forUser()->pluck('id');
+        abort_if(!$accountIds->contains($order->account_id), 403);
+
+        $order->load(['items', 'account']);
+        $result = $this->posService->pushOrderToPos($order);
+
+        ActivityLog::record(
+            'pos.push_order',
+            ($result['success'] ? '✓ ' : '— ') . "Push order {$order->order_id} ke POS: {$result['message']}"
+        );
+
+        if (request()->wantsJson()) {
+            return response()->json($result);
+        }
+
+        return back()->with($result['success'] ? 'success' : 'error', $result['message']);
+    }
+
+    /* ===================================================================
+     *  PUSH ALL TO POS — Batch push order belum sync ke POS (maks 50)
+     * =================================================================== */
+    public function pushAllToPos(Request $request)
+    {
+        $accountIds = AccountShopTiktok::forUser()->pluck('id');
+
+        $orders = Order::with(['items', 'account'])
+            ->whereIn('account_id', $accountIds)
+            ->where('is_synced_to_pos', false)
+            ->whereNotIn('order_status', ['UNPAID', 'CANCELLED'])
+            ->latest('tiktok_create_time')
+            ->limit(50)
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return back()->with('info', 'Tidak ada order yang perlu di-push ke POS saat ini.');
+        }
+
+        $results = $this->posService->pushBatchToPos($orders);
+
+        ActivityLog::record(
+            'pos.push_batch',
+            "Batch push POS — Berhasil: {$results['success']}, Dilewati: {$results['skipped']}, Gagal: {$results['failed']}"
+        );
+
+        $msg  = "✓ Berhasil: {$results['success']} order";
+        if ($results['skipped'] > 0) $msg .= " | ⟳ Dilewati: {$results['skipped']}";
+        if ($results['failed']  > 0) $msg .= " | ✗ Gagal: {$results['failed']}";
+
+        $type = $results['failed'] > 0 ? 'error' : ($results['success'] > 0 ? 'success' : 'info');
+
+        return back()->with($type, $msg);
     }
 
     /* ===================================================================
