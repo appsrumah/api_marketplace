@@ -166,7 +166,7 @@ class StockController extends Controller
             'dilewati'        => $hasilDilewati->count(),
         ];
 
-        return view('stock.pos-stock', compact('account', 'summary', 'hasilSiap', 'hasilSkuKosong', 'hasilDilewati'));
+        return view('stock.test-pos', compact('account', 'summary', 'hasilSiap', 'hasilSkuKosong', 'hasilDilewati'));
     }
 
     /* ================================================================
