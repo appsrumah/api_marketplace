@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AccountShopTiktok;
 use App\Models\ActivityLog;
+use App\Models\ChannelAccount;
 use App\Models\MarketplaceChannel;
 use App\Services\TiktokApiService;
 use Illuminate\Http\Request;
@@ -34,18 +35,30 @@ class IntegrationController extends Controller
 
         $accounts = $accountsQuery->latest()->get();
 
+        // Shopee & channel lain via channel_accounts
+        $channelAccountsQuery = ChannelAccount::with(['channel', 'user', 'warehouse']);
+        if (!$user->isSuperAdmin()) {
+            $channelAccountsQuery->where('user_id', $user->id);
+        }
+        $channelAccounts = $channelAccountsQuery->latest()->get();
+
         // Group by channel_id for display
         $accountsByChannel = $accounts->groupBy('channel_id');
 
-        // Stats
+        // Stats (gabungkan TikTok + ChannelAccount)
+        $allActive  = $accounts->where('status', 'active')->count()
+            + $channelAccounts->where('status', 'active')->count();
+        $allExpired = $accounts->filter(fn($a) => $a->isTokenExpired())->count()
+            + $channelAccounts->filter(fn($a) => $a->isTokenExpired())->count();
+
         $stats = [
             'total_channels'  => $channels->count(),
-            'total_accounts'  => $accounts->count(),
-            'active_accounts' => $accounts->where('status', 'active')->count(),
-            'expired_tokens'  => $accounts->filter(fn($a) => $a->isTokenExpired())->count(),
+            'total_accounts'  => $accounts->count() + $channelAccounts->count(),
+            'active_accounts' => $allActive,
+            'expired_tokens'  => $allExpired,
         ];
 
-        return view('integrations.index', compact('channels', 'accounts', 'accountsByChannel', 'stats'));
+        return view('integrations.index', compact('channels', 'accounts', 'accountsByChannel', 'channelAccounts', 'stats'));
     }
 
     /* ===================================================================
@@ -67,11 +80,19 @@ class IntegrationController extends Controller
      * =================================================================== */
     public function connect(Request $request, MarketplaceChannel $channel)
     {
-        // Sementara hanya TikTok yang didukung
-        if (!in_array(strtoupper($channel->code ?? $channel->slug ?? ''), ['TIKTOK'])) {
+        $channelCode = strtoupper($channel->code ?? $channel->slug ?? '');
+
+        // ── Shopee ────────────────────────────────────────────────────────
+        if ($channelCode === 'SHOPEE') {
+            return redirect()->route('shopee.redirect');
+        }
+
+        // ── Channel belum didukung ────────────────────────────────────────
+        if ($channelCode !== 'TIKTOK') {
             return back()->with('warning', "Integrasi untuk {$channel->name} belum tersedia. Segera hadir!");
         }
 
+        // ── TikTok ────────────────────────────────────────────────────────
         // Store user_id + channel_id di session untuk dipakai saat callback
         session([
             'integration_user_id'    => Auth::id(),

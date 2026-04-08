@@ -7,6 +7,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDetailController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ShopeeAuthController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TiktokAuthController;
 use App\Http\Controllers\UserController;
@@ -58,6 +59,14 @@ Route::middleware(['auth', 'check.active'])->group(function () {
         Route::put('/{user}',                     [UserController::class, 'update'])->name('update');
         Route::patch('/{user}/toggle-active',     [UserController::class, 'toggleActive'])->name('toggle-active');
         Route::delete('/{user}',                  [UserController::class, 'destroy'])->name('destroy');
+    });
+
+    /* ---------- Shopee Auth Flow ---------- */
+    Route::prefix('shopee')->name('shopee.')->group(function () {
+        Route::get('/redirect',                          [ShopeeAuthController::class, 'redirect'])->name('redirect');
+        Route::get('/callback',                          [ShopeeAuthController::class, 'callback'])->name('callback');
+        Route::post('/accounts/{account}/refresh-token', [ShopeeAuthController::class, 'refreshToken'])->name('refresh-token');
+        Route::delete('/accounts/{account}/disconnect',  [ShopeeAuthController::class, 'disconnect'])->name('disconnect');
     });
 
     /* ---------- TikTok Auth Flow ---------- */

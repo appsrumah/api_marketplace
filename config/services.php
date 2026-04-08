@@ -41,7 +41,14 @@ return [
         'api_base'       => env('TIKTOK_API_BASE', 'https://open-api.tiktokglobalshop.com'),
         'auth_base'      => env('TIKTOK_AUTH_BASE', 'https://auth.tiktok-shops.com'),
         'forward_secret' => env('TIKTOK_FORWARD_SECRET', 'kiosq_secret_2026'),
-        'service_id' => env('TIKTOK_SERVICE_ID', '7509508558285227832'),
+        'service_id'     => env('TIKTOK_SERVICE_ID', '7509508558285227832'),
+    ],
+
+    'shopee' => [
+        'partner_id'   => env('SHOPEE_PARTNER_ID'),
+        'partner_key'  => env('SHOPEE_PARTNER_KEY'),
+        'api_base'     => env('SHOPEE_API_BASE', 'https://partner.shopeemobile.com'),
+        'redirect_url' => env('SHOPEE_REDIRECT_URL'),
     ],
 
 ];
