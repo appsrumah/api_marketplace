@@ -41,9 +41,13 @@
         @php
             $channelCode   = strtoupper($channel->identifier);
             $channelColor  = $channel->color ?? '#6b7280';
-            $channelAccounts = $accountsByChannel->get($channel->id, collect());
-            $activeCount   = $channelAccounts->where('status', 'active')->count();
-            $supportedPlatforms = ['TIKTOK'];
+            // TikTok pakai AccountShopTiktok (via $accountsByChannel)
+            // Shopee & channel lain pakai ChannelAccount (via $channelAccounts dari controller)
+            $loopAccounts  = ($channelCode === 'TIKTOK')
+                ? $accountsByChannel->get($channel->id, collect())
+                : $channelAccounts->where('channel_id', $channel->id);
+            $activeCount   = $loopAccounts->where('status', 'active')->count();
+            $supportedPlatforms = ['TIKTOK', 'SHOPEE'];
             $isSupported   = in_array($channelCode, $supportedPlatforms);
         @endphp
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -102,9 +106,9 @@
             </div>
 
             {{-- Connected Accounts --}}
-            @if($channelAccounts->isNotEmpty())
+            @if($loopAccounts->isNotEmpty())
             <div class="divide-y divide-slate-100">
-                @foreach($channelAccounts as $account)
+                @foreach($loopAccounts as $account)
                 @php
                     $isActive  = $account->status === 'active';
                     $isExpired = $account->isTokenExpired();
@@ -156,32 +160,58 @@
                                     <span>Oleh: {{ $account->user->name }}</span>
                                 @endif
 
-                                <span class="text-slate-300">•</span>
-                                <span>{{ $account->produk_count ?? $account->produk()->count() }} produk</span>
+                                @if($channelCode === 'TIKTOK')
+                                    <span class="text-slate-300">•</span>
+                                    <span>{{ $account->produk_count ?? $account->produk()->count() }} produk</span>
+                                @endif
                             </div>
                         </div>
                     </div>
 
                     {{-- Actions --}}
                     <div class="flex items-center gap-2">
-                        @if($isActive && $isExpired)
-                            <form action="{{ route('integrations.refresh-token', $account) }}" method="POST" class="inline">
+                        @if($channelCode === 'SHOPEE')
+                            {{-- Shopee: Refresh Token + Disconnect --}}
+                            <form action="{{ route('shopee.refresh-token', $account) }}" method="POST" class="inline">
                                 @csrf
                                 <button type="submit"
-                                        class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                                         title="Refresh Token">
                                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                     Refresh
                                 </button>
                             </form>
+                            <form action="{{ route('shopee.disconnect', $account) }}" method="POST" class="inline">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+                                        title="Putuskan Koneksi"
+                                        onclick="return confirm('Putuskan koneksi toko Shopee ini?')">
+                                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    Putuskan
+                                </button>
+                            </form>
+                        @else
+                            {{-- TikTok: Refresh jika expired + Detail --}}
+                            @if($isActive && $isExpired)
+                                <form action="{{ route('integrations.refresh-token', $account) }}" method="POST" class="inline">
+                                    @csrf
+                                    <button type="submit"
+                                            class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                                            title="Refresh Token">
+                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                        Refresh
+                                    </button>
+                                </form>
+                            @endif
+                            <a href="{{ route('integrations.show', $account) }}"
+                               class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                               title="Detail">
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                Detail
+                            </a>
                         @endif
-
-                        <a href="{{ route('integrations.show', $account) }}"
-                           class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-                           title="Detail">
-                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            Detail
-                        </a>
                     </div>
                 </div>
                 @endforeach

@@ -14,10 +14,10 @@ class ShopeeApiService
 
     public function __construct()
     {
-        $this->partnerId   = (int) config('services.shopee.partner_id', 0);
-        $this->partnerKey  = config('services.shopee.partner_key', '');
-        $this->apiBase     = rtrim(config('services.shopee.api_base', 'https://partner.shopeemobile.com'), '/');
-        $this->redirectUrl = config('services.shopee.redirect_url', '');
+        $this->partnerId   = (int) (config('services.shopee.partner_id') ?? 0);
+        $this->partnerKey  = (string) (config('services.shopee.partner_key') ?? '');
+        $this->apiBase     = rtrim((string) (config('services.shopee.api_base') ?? 'https://partner.shopeemobile.com'), '/');
+        $this->redirectUrl = (string) (config('services.shopee.redirect_url') ?? '');
     }
 
     /* ===================================================================
