@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Role as RoleModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 
 class User extends Authenticatable
 {
@@ -12,20 +15,32 @@ class User extends Authenticatable
 
     // ─── Role Constants ───────────────────────────────────────────────────────
 
-    const ROLE_SUPER_ADMIN = 'super_admin';
-    const ROLE_ADMIN       = 'admin';
-    const ROLE_OPERATOR    = 'operator';
+    const ROLE_SUPER_ADMIN  = 'super_admin';
+    const ROLE_ADMIN        = 'admin';
+    const ROLE_MANAGER      = 'manager';
+    const ROLE_STAFF_ADMIN  = 'staff_admin';
+    const ROLE_OPERATOR     = 'operator';
+    const ROLE_FINANCE      = 'finance';
+    const ROLE_CS           = 'cs';
 
     const ROLES = [
         'super_admin' => 'Super Admin',
         'admin'       => 'Admin',
+        'manager'     => 'Manager',
+        'staff_admin' => 'Staff Admin',
         'operator'    => 'Operator',
+        'finance'     => 'Finance',
+        'cs'          => 'Customer Service',
     ];
 
     const ROLE_COLORS = [
         'super_admin' => 'bg-violet-100 text-violet-700',
         'admin'       => 'bg-blue-100 text-blue-700',
+        'manager'     => 'bg-indigo-100 text-indigo-700',
+        'staff_admin' => 'bg-cyan-100 text-cyan-700',
         'operator'    => 'bg-slate-100 text-slate-600',
+        'finance'     => 'bg-emerald-100 text-emerald-700',
+        'cs'          => 'bg-amber-100 text-amber-700',
     ];
 
     // ─── Mass Assignment ──────────────────────────────────────────────────────
@@ -36,6 +51,7 @@ class User extends Authenticatable
         'phone',
         'password',
         'role',
+        'role_id',
         'is_active',
         'created_by',
         'avatar',
@@ -62,7 +78,7 @@ class User extends Authenticatable
     // ─── Relationships ────────────────────────────────────────────────────────
 
     /** Dibuat oleh Super Admin ini */
-    public function creator()
+    public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
@@ -71,6 +87,39 @@ class User extends Authenticatable
     public function subordinates()
     {
         return $this->hasMany(User::class, 'created_by');
+    }
+
+    /**
+     * Role formal dari tabel roles (sistem permission baru).
+     * Nama method sengaja roleModel() agar tidak konflik dengan atribut `role` (enum).
+     */
+    public function roleModel(): BelongsTo
+    {
+        return $this->belongsTo(RoleModel::class, 'role_id');
+    }
+
+    /** Akun TikTok yang dimiliki user ini */
+    public function tiktokAccounts()
+    {
+        return $this->hasMany(AccountShopTiktok::class, 'user_id');
+    }
+
+    /** Akun channel general yang dimiliki user ini */
+    public function channelAccounts()
+    {
+        return $this->hasMany(ChannelAccount::class, 'user_id');
+    }
+
+    /** Warehouse yang dibuat oleh user ini */
+    public function warehouses()
+    {
+        return $this->hasMany(Warehouse::class, 'created_by');
+    }
+
+    /** Activity log milik user ini */
+    public function activityLogs()
+    {
+        return $this->hasMany(ActivityLog::class, 'user_id');
     }
 
     // ─── Computed Attributes ─────────────────────────────────────────────────
@@ -109,9 +158,29 @@ class User extends Authenticatable
         return $this->role === self::ROLE_ADMIN;
     }
 
+    public function isManager(): bool
+    {
+        return $this->role === self::ROLE_MANAGER;
+    }
+
+    public function isStaffAdmin(): bool
+    {
+        return $this->role === self::ROLE_STAFF_ADMIN;
+    }
+
     public function isOperator(): bool
     {
         return $this->role === self::ROLE_OPERATOR;
+    }
+
+    public function isFinance(): bool
+    {
+        return $this->role === self::ROLE_FINANCE;
+    }
+
+    public function isCs(): bool
+    {
+        return $this->role === self::ROLE_CS;
     }
 
     public function hasRole(string $role): bool
@@ -119,35 +188,84 @@ class User extends Authenticatable
         return $this->role === $role;
     }
 
-    // ─── Access Control (Feature Flags) ──────────────────────────────────────
+    /**
+     * Ambil daftar nama permission user ini melalui role_id.
+     * Super Admin otomatis mendapat semua permission.
+     */
+    public function getPermissions(): Collection
+    {
+        if ($this->isSuperAdmin()) {
+            return collect(array_keys(\App\Models\Permission::ALL));
+        }
+        return $this->roleModel?->permissions->pluck('name') ?? collect();
+    }
 
-    /** Hanya Super Admin yang bisa kelola pengguna */
+    /**
+     * Cek apakah user memiliki permission tertentu.
+     * Super Admin selalu true.
+     */
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+        return $this->getPermissions()->contains($permission);
+    }
+
+    // ─── Access Control (Feature Flags) ──────────────────────────────────────
+    // Metode-metode ini menjadi wrapper ke sistem permission baru.
+    // Tetap dipertahankan untuk backward-compatibility dengan kode lama.
+
+    /** Kelola pengguna (tambah/edit/hapus) */
     public function canManageUsers(): bool
     {
-        return $this->isSuperAdmin();
+        return $this->hasPermission('users.create')
+            || $this->hasPermission('users.edit')
+            || $this->hasPermission('users.delete');
     }
 
-    /** Super Admin & Admin bisa kelola akun marketplace */
+    /** Lihat daftar pengguna */
+    public function canViewUsers(): bool
+    {
+        return $this->hasPermission('users.view');
+    }
+
+    /** Kelola akun marketplace (hubungkan/putuskan) */
     public function canManageMarketplaceAccounts(): bool
     {
-        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN]);
+        return $this->hasPermission('channels.connect')
+            || $this->hasPermission('channels.disconnect');
     }
 
-    /** Super Admin & Admin bisa kelola produk */
+    /** Kelola produk (tambah/edit/hapus) */
     public function canManageProducts(): bool
     {
-        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN]);
+        return $this->hasPermission('products.create')
+            || $this->hasPermission('products.edit')
+            || $this->hasPermission('products.delete');
     }
 
-    /** Semua role bisa lihat & trigger sync stok */
+    /** Sync stok ke channel */
     public function canSyncStock(): bool
     {
-        return true;
+        return $this->hasPermission('stock.sync');
     }
 
-    /** Super Admin & Admin bisa akses laporan */
+    /** Lihat laporan */
     public function canViewReports(): bool
     {
-        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN]);
+        return $this->hasPermission('reports.view');
+    }
+
+    /** Kelola gudang/warehouse */
+    public function canManageWarehouses(): bool
+    {
+        return $this->hasPermission('warehouses.manage');
+    }
+
+    /** Ubah pengaturan sistem */
+    public function canManageSettings(): bool
+    {
+        return $this->hasPermission('settings.manage');
     }
 }

@@ -99,14 +99,10 @@ class StockController extends Controller
      *  TESTING — Cek stok dari DB POS untuk akun tertentu
      *  GET /stock/test/{account}/pos-stock
      * ================================================================ */
-    public function testPosStock(AccountShopTiktok $account): JsonResponse
+    public function testPosStock(AccountShopTiktok $account)
     {
         if (!$account->id_outlet) {
-            return response()->json([
-                'status' => 'ERROR',
-                'pesan'  => 'id_outlet belum di-set untuk akun ini!',
-                'fix'    => "POST /stock/{$account->id}/set-outlet dengan body {\"id_outlet\": 24}",
-            ], 422);
+            return back()->with('error', 'id_outlet belum di-set untuk akun ini! Atur dulu di halaman Integrasi.');
         }
 
         $semuaProduk = ProdukSaya::where('account_id', $account->id)
@@ -116,76 +112,61 @@ class StockController extends Controller
             ->orderBy('seller_sku')
             ->get();
 
-        if ($semuaProduk->isEmpty()) {
-            return response()->json([
-                'status' => 'WARNING',
-                'pesan'  => 'Tidak ada produk TIKTOK/TOKOPEDIA untuk akun ini. Lakukan sync produk terlebih dahulu.',
-            ], 404);
-        }
-
-        $hasilSiap      = [];
-        $hasilSkuKosong = [];
-        $hasilDilewati  = [];
+        $hasilSiap      = collect();
+        $hasilSkuKosong = collect();
+        $hasilDilewati  = collect();
 
         foreach ($semuaProduk as $product) {
             $platformLabel = $product->platform === 'TIKTOK' ? 'TikTok' : 'Tokopedia';
 
             if ($product->product_status !== 'ACTIVATE') {
-                $hasilDilewati[] = [
+                $hasilDilewati->push([
                     'platform'       => $platformLabel,
                     'title'          => $product->title,
-                    'seller_sku'     => $product->seller_sku ?: '(kosong)',
+                    'seller_sku'     => $product->seller_sku ?: '—',
                     'product_status' => $product->product_status,
-                    'keterangan'     => 'Dilewati - status bukan ACTIVATE',
-                ];
+                ]);
                 continue;
             }
 
             if (empty($product->seller_sku)) {
-                $hasilSkuKosong[] = [
-                    'platform'       => $platformLabel,
-                    'title'          => $product->title,
-                    'product_id'     => $product->product_id,
-                    'sku_id'         => $product->sku_id,
-                    'product_status' => $product->product_status,
-                    'keterangan'     => 'seller_sku kosong - isi di Seller Center lalu sync ulang',
-                ];
+                $hasilSkuKosong->push([
+                    'platform'   => $platformLabel,
+                    'title'      => $product->title,
+                    'product_id' => $product->product_id,
+                    'sku_id'     => $product->sku_id,
+                ]);
                 continue;
             }
 
-            $qty = $this->posStock->getStock($product->seller_sku, $account->id_outlet);
+            $stokPos = $this->posStock->getStock($product->seller_sku, $account->id_outlet);
+            $stokMkt = (int) $product->quantity;
+            $selisih = $stokPos - $stokMkt;
 
-            $hasilSiap[] = [
-                'platform'         => $platformLabel,
-                'title'            => $product->title,
-                'seller_sku'       => $product->seller_sku,
-                'sku_id'           => $product->sku_id,
-                'product_id'       => $product->product_id,
-                'stok_pos'         => $qty,
-                'stok_marketplace' => $product->quantity,
-                'perlu_update'     => ($qty !== (int) $product->quantity) ? 'Ya' : 'Sama',
-            ];
+            $hasilSiap->push([
+                'platform'     => $platformLabel,
+                'title'        => $product->title,
+                'seller_sku'   => $product->seller_sku,
+                'sku_id'       => $product->sku_id,
+                'product_id'   => $product->product_id,
+                'stok_pos'     => $stokPos,
+                'stok_mkt'     => $stokMkt,
+                'selisih'      => $selisih,
+                'perlu_update' => $stokPos !== $stokMkt,
+            ]);
         }
 
-        $totalTiktok    = $semuaProduk->where('platform', 'TIKTOK')->count();
-        $totalTokopedia = $semuaProduk->where('platform', 'TOKOPEDIA')->count();
+        $summary = [
+            'total_produk'    => $semuaProduk->count(),
+            'total_tiktok'    => $semuaProduk->where('platform', 'TIKTOK')->count(),
+            'total_tokopedia' => $semuaProduk->where('platform', 'TOKOPEDIA')->count(),
+            'siap_sync'       => $hasilSiap->count(),
+            'perlu_update'    => $hasilSiap->where('perlu_update', true)->count(),
+            'sku_kosong'      => $hasilSkuKosong->count(),
+            'dilewati'        => $hasilDilewati->count(),
+        ];
 
-        return response()->json([
-            'status'    => 'Koneksi DB POS OK',
-            'account'   => $account->seller_name,
-            'id_outlet' => $account->id_outlet,
-            'summary'   => [
-                'total_produk'       => $semuaProduk->count(),
-                'total_tiktok'       => $totalTiktok,
-                'total_tokopedia'    => $totalTokopedia,
-                'siap_sync'          => count($hasilSiap),
-                'seller_sku_kosong'  => count($hasilSkuKosong),
-                'dilewati_non_aktif' => count($hasilDilewati),
-            ],
-            'produk_siap_sync'  => $hasilSiap,
-            'produk_sku_kosong' => $hasilSkuKosong,
-            'produk_dilewati'   => $hasilDilewati,
-        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        return view('stock.pos-stock', compact('account', 'summary', 'hasilSiap', 'hasilSkuKosong', 'hasilDilewati'));
     }
 
     /* ================================================================
@@ -279,7 +260,7 @@ class StockController extends Controller
      * ================================================================ */
     public function dashboard(): \Illuminate\View\View
     {
-        $accounts = AccountShopTiktok::all()->map(function ($account) {
+        $accounts = AccountShopTiktok::forUser()->get()->map(function ($account) {
             $base = ProdukSaya::where('account_id', $account->id)
                 ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
                 ->where('product_status', 'ACTIVATE');
@@ -318,7 +299,9 @@ class StockController extends Controller
         $totalSiapSync = $accounts->sum('siap_sync');
         $totalTanpaSku = $accounts->sum('tanpa_sku');
 
+        $userAccountIds = AccountShopTiktok::forUser()->pluck('id');
         $produkSiapSync = ProdukSaya::with('account')
+            ->whereIn('account_id', $userAccountIds)
             ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
             ->where('product_status', 'ACTIVATE')
             ->whereNotNull('seller_sku')
@@ -389,7 +372,7 @@ class StockController extends Controller
         @set_time_limit(300);
 
         try {
-            $accounts = AccountShopTiktok::whereNotNull('id_outlet')->get();
+            $accounts = AccountShopTiktok::forUser()->whereNotNull('id_outlet')->get();
             $queued   = 0;
             $skipped  = [];
             $detail   = [];
@@ -518,10 +501,10 @@ class StockController extends Controller
 
             if ($pending > 0) {
                 return response()->json([
-                    'status'      => 'skipped',
-                    'reason'      => 'Masih ada jobs pending di queue, dispatch dilewati.',
+                    'status'       => 'skipped',
+                    'reason'       => 'Masih ada jobs pending di queue, dispatch dilewati.',
                     'jobs_pending' => $pending,
-                    'tip'         => 'Tunggu queue worker selesai memproses semua jobs terlebih dahulu.',
+                    'tip'          => 'Tunggu queue worker selesai memproses semua jobs terlebih dahulu.',
                 ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
         } catch (\Throwable $e) {
@@ -546,10 +529,10 @@ class StockController extends Controller
         try {
             // Artisan::call() bekerja tanpa exec() — murni PHP internal
             $exitCode = \Illuminate\Support\Facades\Artisan::call('queue:work', [
-                '--queue'          => 'tiktok-inventory',
+                '--queue'           => 'tiktok-inventory',
                 '--stop-when-empty' => true,
-                '--max-time'       => 55,
-                '--tries'          => 3,
+                '--max-time'        => 55,
+                '--tries'           => 3,
             ]);
 
             $output = \Illuminate\Support\Facades\Artisan::output();

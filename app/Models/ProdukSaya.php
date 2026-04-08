@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ProdukSaya extends Model
 {
@@ -11,6 +12,7 @@ class ProdukSaya extends Model
 
     protected $fillable = [
         'account_id',
+        'channel_id',      // ← FK ke marketplace_channels (denormalized)
         'product_id',
         'sku_id',
         'platform',
@@ -36,6 +38,18 @@ class ProdukSaya extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(AccountShopTiktok::class, 'account_id');
+    }
+
+    /** Channel marketplace langsung (denormalized dari account.channel_id) */
+    public function channel(): BelongsTo
+    {
+        return $this->belongsTo(MarketplaceChannel::class, 'channel_id');
+    }
+
+    /** Detail produk dari TikTok API (join by product_id) */
+    public function detail(): HasOne
+    {
+        return $this->hasOne(ProductDetail::class, 'product_id', 'product_id');
     }
 
     /* ---------- Scopes ---------- */

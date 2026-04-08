@@ -320,16 +320,16 @@
                 {{-- Card Footer / Actions --}}
                 <div class="flex gap-2 border-t border-slate-100 bg-slate-50/60 px-4 py-3">
                     {{-- Sync akun ini --}}
-                    <button @click="doSyncAccount({{ $account->id }}, '{{ addslashes($account->seller_name) }}')"
+                    {{-- <button @click="doSyncAccount({{ $account->id }}, '{{ addslashes($account->seller_name) }}')"
                             :disabled="loading || {{ $account->id_outlet ? 'false' : 'true' }}"
                             class="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed">
                         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
                         Sync Akun
-                    </button>
+                    </button> --}}
                     {{-- Cek POS --}}
-                    <a href="{{ route('stock.test-pos', $account->id) }}" target="_blank"
+                    <a href="{{ route('stock.test-pos', $account->id) }}"
                        class="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">
                         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>

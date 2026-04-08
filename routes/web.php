@@ -2,7 +2,10 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IntegrationController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductDetailController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TiktokAuthController;
@@ -66,8 +69,37 @@ Route::middleware(['auth', 'check.active'])->group(function () {
         Route::post('/internal-callback', [TiktokAuthController::class, 'internalCallback'])->name('internal-callback');
     });
 
+    /* ---------- Pusat Integrasi Marketplace ---------- */
+    Route::prefix('integrations')->name('integrations.')->group(function () {
+        Route::get('/',                        [IntegrationController::class, 'index'])->name('index');
+        Route::get('/{account}',               [IntegrationController::class, 'show'])->name('show');
+        Route::post('/{channel}/connect',      [IntegrationController::class, 'connect'])->name('connect');
+        Route::put('/{account}/update',        [IntegrationController::class, 'update'])->name('update');
+        Route::post('/{account}/refresh-token', [IntegrationController::class, 'refreshToken'])->name('refresh-token');
+        Route::delete('/{account}/disconnect', [IntegrationController::class, 'disconnect'])->name('disconnect');
+    });
+
     /* ---------- Products ---------- */
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+    Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+    /* ---------- Product Detail (from TikTok API) ---------- */
+    Route::prefix('products')->name('products.')->group(function () {
+        Route::get('/{productId}/detail',       [ProductDetailController::class, 'show'])->name('detail');
+        Route::get('/{productId}/edit',         [ProductDetailController::class, 'edit'])->name('edit');
+        Route::put('/{productId}',              [ProductDetailController::class, 'update'])->name('update');
+        Route::get('/test/{account}/{productId}', [ProductDetailController::class, 'testFetchOne'])->name('test-fetch');
+    });
+
+    /* ---------- Orders ---------- */
+    Route::prefix('orders')->name('orders.')->group(function () {
+        Route::get('/',                          [OrderController::class, 'index'])->name('index');
+        Route::post('/push-all-pos',             [OrderController::class, 'pushAllToPos'])->name('push-all-pos');
+        Route::get('/{order}',                   [OrderController::class, 'show'])->name('show');
+        Route::post('/{order}/push-pos',         [OrderController::class, 'pushToPos'])->name('push-pos');
+        Route::post('/{account}/sync',           [OrderController::class, 'syncOrders'])->name('sync');
+        Route::get('/test/{account}',            [OrderController::class, 'testFetchOne'])->name('test-fetch');
+    });
 
     /* ---------- Stock Sync ---------- */
     Route::prefix('stock')->name('stock.')->group(function () {

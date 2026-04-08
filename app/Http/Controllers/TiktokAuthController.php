@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\IntegrationController;
 use App\Models\AccountShopTiktok;
+use App\Models\ProductDetail;
 use App\Models\ProdukSaya;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
@@ -86,6 +88,9 @@ class TiktokAuthController extends Controller
 
             Log::info("✅ Akun TikTok disimpan: id={$account->id}, seller={$account->seller_name}");
 
+            // ======== STEP 3b: Assign user_id & channel_id dari session ========
+            IntegrationController::assignFromSession($account);
+
             // ======== STEP 4: Auto sync semua produk ========
             if ($account->shop_cipher) {
                 $result = $this->tiktokService->fetchAllProducts(
@@ -159,10 +164,14 @@ class TiktokAuthController extends Controller
 
             $saved = $this->saveProducts($account->id, $result['products']);
 
+            // ── Auto-fetch product details dari TikTok API ──────────
+            $detailsFetched = $this->fetchProductDetails($account);
+
             return back()->with(
                 'success',
                 "Sync berhasil! {$saved} produk diperbarui/ditambahkan dari {$result['total_pages']} halaman. " .
-                    "Duplikat dilewati: {$result['total_skipped']}."
+                    "Duplikat dilewati: {$result['total_skipped']}. " .
+                    "Detail produk diambil: {$detailsFetched}."
             );
         } catch (\Exception $e) {
             Log::error('Sync error: ' . $e->getMessage());
@@ -218,6 +227,104 @@ class TiktokAuthController extends Controller
         }
 
         return $saved;
+    }
+
+    /* ---------- Auto-fetch product details dari TikTok API ---------- */
+    private function fetchProductDetails(AccountShopTiktok $account): int
+    {
+        $fetched = 0;
+
+        try {
+            @set_time_limit(300);
+
+            // Ambil produk TIKTOK ACTIVATE yang belum punya detail
+            $products = ProdukSaya::where('account_id', $account->id)
+                ->where('platform', 'TIKTOK')
+                ->whereIn('product_status', ['ACTIVATE', 'SELLER_DEACTIVATED'])
+                ->whereNotExists(function ($q) {
+                    $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                        ->from('product_details')
+                        ->whereColumn('product_details.product_id', 'produk_saya.product_id')
+                        ->whereColumn('product_details.account_id', 'produk_saya.account_id');
+                })
+                ->select('product_id')
+                ->distinct()
+                ->limit(50) // batasi agar tidak timeout
+                ->get();
+
+            if ($products->isEmpty()) {
+                return 0;
+            }
+
+            $accessToken = $account->access_token;
+
+            // Refresh token jika expired
+            if ($account->isTokenExpired()) {
+                $tokenData = $this->tiktokService->refreshAccessToken($account->refresh_token);
+                $account->update([
+                    'access_token'           => $tokenData['access_token'],
+                    'access_token_expire_in' => now()->addSeconds($tokenData['access_token_expire_in'] ?? 0),
+                ]);
+                $account->refresh();
+                $accessToken = $account->access_token;
+            }
+
+            foreach ($products as $prod) {
+                try {
+                    $apiData = $this->tiktokService->getProductDetail(
+                        $accessToken,
+                        $account->shop_cipher,
+                        $prod->product_id
+                    );
+
+                    $category  = $apiData['category_chains'] ?? [];
+                    $lastCat   = end($category);
+                    $packaging = $apiData['package_dimensions'] ?? [];
+
+                    ProductDetail::updateOrCreate(
+                        ['product_id' => $prod->product_id, 'account_id' => $account->id],
+                        [
+                            'platform'                     => 'TIKTOK',
+                            'title'                        => $apiData['title'] ?? null,
+                            'description'                  => $apiData['description'] ?? null,
+                            'category_id'                  => $lastCat['id'] ?? null,
+                            'category_name'                => $lastCat['local_name'] ?? $lastCat['parent_id'] ?? null,
+                            'main_images'                  => $apiData['main_images'] ?? [],
+                            'video'                        => $apiData['video'] ?? null,
+                            'skus'                         => $apiData['skus'] ?? [],
+                            'product_status'               => $apiData['status'] ?? null,
+                            'product_attributes'           => $apiData['product_attributes'] ?? [],
+                            'size_chart'                   => $apiData['size_chart'] ?? null,
+                            'brand_id'                     => $apiData['brand']['id'] ?? null,
+                            'brand_name'                   => $apiData['brand']['name'] ?? null,
+                            'package_weight'               => $apiData['package_weight']['value'] ?? null,
+                            'package_length'               => $packaging['length'] ?? null,
+                            'package_width'                => $packaging['width'] ?? null,
+                            'package_height'               => $packaging['height'] ?? null,
+                            'package_dimensions_unit'      => $packaging['unit'] ?? null,
+                            'product_certifications'       => $apiData['product_certifications'] ?? [],
+                            'delivery_options'             => $apiData['delivery_options'] ?? [],
+                            'integrated_platform_statuses' => $apiData['integrated_platform_statuses'] ?? [],
+                            'tiktok_create_time'           => $apiData['create_time'] ?? null,
+                            'tiktok_update_time'           => $apiData['update_time'] ?? null,
+                            'raw_data'                     => $apiData,
+                        ]
+                    );
+
+                    $fetched++;
+
+                    // Rate-limit: 100ms antar request agar tidak di-throttle oleh TikTok
+                    usleep(100_000);
+                } catch (\Throwable $e) {
+                    Log::warning("Gagal ambil detail produk {$prod->product_id}: " . $e->getMessage());
+                    continue; // lanjut ke produk berikutnya
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('fetchProductDetails batch error: ' . $e->getMessage());
+        }
+
+        return $fetched;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -61,6 +62,8 @@ class UserController extends Controller
             'is_active'  => true,
             'created_by' => Auth::id(),
         ]);
+
+        ActivityLog::record('user.create', "Menambah pengguna: {$request->name} ({$request->role})");
 
         return redirect()->route('users.index')
             ->with('success', 'Pengguna baru berhasil ditambahkan.');
@@ -132,6 +135,8 @@ class UserController extends Controller
         $user->update(['is_active' => !$user->is_active]);
         $status = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
 
+        ActivityLog::record('user.toggle_active', "Akun {$user->name} {$status}", $user);
+
         return redirect()->route('users.index')
             ->with('success', "Akun {$user->name} berhasil {$status}.");
     }
@@ -151,6 +156,9 @@ class UserController extends Controller
         }
 
         $name = $user->name;
+
+        ActivityLog::record('user.delete', "Menghapus pengguna: {$name}", $user, null, null, 'warning');
+
         $user->delete();
 
         return redirect()->route('users.index')
