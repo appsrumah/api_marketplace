@@ -36,7 +36,7 @@
      ════════════════════════════════════════════════════════════════════ --}}
 
 {{-- ═══ SIDEBAR ════════════════════════════════════════════════════════ --}}
-<aside class="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col bg-surface-container-highest p-6">
+<aside class="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col p-6" style="background: #1e1449;">
 
     {{-- Brand --}}
     <a href="{{ route('dashboard') }}" class="mb-10 flex items-center gap-3">
@@ -44,8 +44,8 @@
             KQ
         </div>
         <div class="leading-tight">
-            <p class="text-base font-bold text-primary font-headline">Kios Q</p>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">TikTok Shop</p>
+            <p class="text-base font-bold text-white font-headline">Kios Q</p>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-white/50">TikTok Shop</p>
         </div>
     </a>
 
@@ -55,7 +55,7 @@
         {{-- Dashboard --}}
         <a href="{{ route('dashboard') }}"
            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150
-                  {{ request()->routeIs('dashboard') ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:bg-white/50 hover:text-primary' }}">
+                  {{ request()->routeIs('dashboard') ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white' }}">
             <span class="material-symbols-outlined text-[20px]">dashboard</span>
             Dashboard
         </a>
@@ -63,7 +63,7 @@
         {{-- Produk --}}
         <a href="{{ route('products.index') }}"
            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150
-                  {{ request()->routeIs('products.*') ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:bg-white/50 hover:text-primary' }}">
+                  {{ request()->routeIs('products.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white' }}">
             <span class="material-symbols-outlined text-[20px]">inventory_2</span>
             Produk Saya
         </a>
@@ -71,7 +71,7 @@
         {{-- Pesanan --}}
         <a href="{{ route('orders.index') }}"
            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150
-                  {{ request()->routeIs('orders.*') ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:bg-white/50 hover:text-primary' }}">
+                  {{ request()->routeIs('orders.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white' }}">
             <span class="material-symbols-outlined text-[20px]">shopping_cart</span>
             Pesanan
         </a>
@@ -79,7 +79,7 @@
         {{-- Sinkron Stok --}}
         <a href="{{ route('stock.dashboard') }}"
            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150
-                  {{ request()->routeIs('stock.*') ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:bg-white/50 hover:text-primary' }}">
+                  {{ request()->routeIs('stock.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white' }}">
             <span class="material-symbols-outlined text-[20px]">sync</span>
             Sinkron Stok
         </a>
@@ -87,7 +87,7 @@
         {{-- Integrasi --}}
         <a href="{{ route('integrations.index') }}"
            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150
-                  {{ request()->routeIs('integrations.*') ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:bg-white/50 hover:text-primary' }}">
+                  {{ request()->routeIs('integrations.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white' }}">
             <span class="material-symbols-outlined text-[20px]">hub</span>
             Integrasi
         </a>
@@ -96,7 +96,7 @@
         @if(auth()->user()->canManageUsers())
         <a href="{{ route('users.index') }}"
            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150
-                  {{ request()->routeIs('users.*') ? 'bg-surface-container-lowest text-primary shadow-sm' : 'text-on-surface-variant hover:bg-white/50 hover:text-primary' }}">
+                  {{ request()->routeIs('users.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white' }}">
             <span class="material-symbols-outlined text-[20px]">group</span>
             Pengguna
         </a>
@@ -105,7 +105,7 @@
     </nav>
 
     {{-- Bottom: Tambah Akun CTA --}}
-    <div class="mt-6 border-t border-outline-variant/30 pt-5">
+    <div class="mt-6 border-t border-white/10 pt-5">
         <a href="{{ route('integrations.connect', 'tiktok') }}"
            class="flex w-full items-center justify-center gap-2 rounded-xl primary-gradient px-4 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90 active:scale-[0.98]">
             <span class="material-symbols-outlined text-[18px]">add</span>

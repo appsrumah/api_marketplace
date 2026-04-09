@@ -22,7 +22,7 @@
 <div class="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
 
     {{-- Total Akun --}}
-    <div class="rounded-2xl bg-surface-container-lowest p-5 shadow-whisper">
+    <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
         <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Total Akun</p>
         <p class="mt-2 font-headline text-3xl font-extrabold text-primary">{{ $stats['total_accounts'] }}</p>
         <div class="mt-3 flex items-center gap-2">
@@ -34,7 +34,7 @@
     </div>
 
     {{-- Akun Aktif --}}
-    <div class="rounded-2xl bg-surface-container-lowest p-5 shadow-whisper">
+    <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
         <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Akun Aktif</p>
         <p class="mt-2 font-headline text-3xl font-extrabold text-secondary">{{ $stats['active_accounts'] }}</p>
         <div class="mt-3 flex items-center gap-2">
@@ -46,7 +46,7 @@
     </div>
 
     {{-- Total Produk --}}
-    <div class="rounded-2xl bg-surface-container-lowest p-5 shadow-whisper">
+    <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
         <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Total Produk</p>
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_products']) }}</p>
         <div class="mt-3 flex items-center gap-2">
@@ -58,7 +58,7 @@
     </div>
 
     {{-- TikTok --}}
-    <div class="rounded-2xl bg-surface-container-lowest p-5 shadow-whisper">
+    <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
         <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Produk TikTok</p>
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_tiktok']) }}</p>
         <div class="mt-3 flex items-center gap-2">
@@ -70,7 +70,7 @@
     </div>
 
     {{-- Tokopedia --}}
-    <div class="rounded-2xl bg-surface-container-lowest p-5 shadow-whisper">
+    <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
         <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Produk Tokopedia</p>
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_tokopedia']) }}</p>
         <div class="mt-3 flex items-center gap-2">
