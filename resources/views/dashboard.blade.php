@@ -1,10 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Dashboard')
-@section('breadcrumb', 'Dashboard — Ringkasan')
+@section('breadcrumb', 'Dashboard â€” Ringkasan')
 
 @section('content')
 
-{{-- ═══ HEADER ════════════════════════════════════════════════════════ --}}
+{{-- â•â•â• HEADER â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
         <p class="mb-1 text-xs font-bold uppercase tracking-widest text-secondary">Omni-channel Management</p>
@@ -18,8 +18,8 @@
     </a>
 </div>
 
-{{-- ═══ STATS CARDS ════════════════════════════════════════════════════ --}}
-<div class="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
+{{-- â•â•â• STATS CARDS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+<div class="mt-8 grid grid-cols-2 gap-5 lg:grid-cols-5">
 
     {{-- Total Akun --}}
     <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
@@ -82,7 +82,7 @@
     </div>
 </div>
 
-{{-- ═══ STOCK SYNC WIDGET ═══════════════════════════════════════════════ --}}
+{{-- â•â•â• STOCK SYNC WIDGET â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
 <div class="mt-8 overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
 
     {{-- Header --}}
@@ -147,7 +147,7 @@
     </div>
 </div>
 
-{{-- ═══ ACCOUNT LIST ════════════════════════════════════════════════════ --}}
+{{-- â•â•â• ACCOUNT LIST â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
 <div class="mt-10">
     <h2 class="font-headline text-lg font-bold text-on-surface">Akun Terhubung</h2>
     <p class="mt-1 text-sm text-on-surface-variant">Daftar akun TikTok Shop yang sudah ditautkan.</p>
@@ -166,7 +166,7 @@
             </a>
         </div>
     @else
-        <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="mt-4 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             @foreach($accounts as $account)
                 <div class="group relative overflow-hidden rounded-2xl bg-surface-container-lowest p-6 shadow-whisper transition hover:shadow-md">
 
@@ -197,7 +197,7 @@
                             <p class="text-xs text-on-surface-variant">
                                 {{ $account->seller_base_region }}
                                 @if($account->shop_cipher)
-                                    · <span class="font-mono text-[10px]">{{ Str::limit($account->shop_cipher, 20) }}</span>
+                                    Â· <span class="font-mono text-[10px]">{{ Str::limit($account->shop_cipher, 20) }}</span>
                                 @endif
                             </p>
                         </div>

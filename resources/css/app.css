@@ -10,6 +10,7 @@
    Design North Star: "The Digital Curator"
    Color Palette: Deep Purple Primary + Mint Green Secondary
    Typography: Plus Jakarta Sans (headlines) + Inter (body/labels)
+   Light + Dark Mode Support
    ═══════════════════════════════════════════════════════════════════════ */
 
 @theme {
@@ -49,19 +50,15 @@
     --color-on-tertiary-fixed-variant: #6d3a00;
 
     /* ── Surface Tiers (Physical Depth Hierarchy) ────────────────────── */
-    /* Level 0 – foundation canvas                                        */
     --color-surface:                   #fcf8ff;
     --color-background:                #fcf8ff;
     --color-surface-bright:            #fcf8ff;
     --color-surface-dim:               #d8d7fc;
     --color-surface-variant:           #e1e0ff;
-    /* Level 1 – subtle section panels                                    */
     --color-surface-container-lowest:  #ffffff;
     --color-surface-container-low:     #f5f2ff;
-    /* Level 2 – cards / modules                                          */
     --color-surface-container:         #eeecff;
     --color-surface-container-high:    #e8e6ff;
-    /* Level 3 – sidebar / heaviest structural weight                     */
     --color-surface-container-highest: #e1e0ff;
 
     /* ── On-Surface Tokens ───────────────────────────────────────────── */
@@ -83,29 +80,128 @@
     --color-on-error-container: #93000a;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   DARK MODE — Override CSS custom properties on .dark
+   ═══════════════════════════════════════════════════════════════════════ */
+.dark {
+    /* ── Primary — brighter in dark mode ─────────────────────────────── */
+    --color-primary:                  #c8bfff;
+    --color-primary-container:        #3d2699;
+    --color-primary-fixed:            #2a1a5e;
+    --color-primary-fixed-dim:        #3d2699;
+    --color-inverse-primary:          #34179a;
+    --color-on-primary:               #1e0070;
+    --color-on-primary-container:     #e5deff;
+    --color-on-primary-fixed:         #e5deff;
+    --color-on-primary-fixed-variant: #c8bfff;
+
+    /* ── Secondary — Mint in dark ────────────────────────────────────── */
+    --color-secondary:                  #55feba;
+    --color-secondary-container:        #004d34;
+    --color-secondary-fixed:            #003824;
+    --color-secondary-fixed-dim:        #004d34;
+    --color-on-secondary:               #003822;
+    --color-on-secondary-container:     #55feba;
+    --color-on-secondary-fixed:         #55feba;
+    --color-on-secondary-fixed-variant: #2ae19f;
+
+    /* ── Tertiary — Amber in dark ────────────────────────────────────── */
+    --color-tertiary:                  #ffb77a;
+    --color-tertiary-container:        #5c3300;
+    --color-tertiary-fixed:            #3d1e00;
+    --color-tertiary-fixed-dim:        #5c3300;
+    --color-on-tertiary:               #2e1500;
+    --color-on-tertiary-container:     #ffdcc2;
+    --color-on-tertiary-fixed:         #ffdcc2;
+    --color-on-tertiary-fixed-variant: #ffb77a;
+
+    /* ── Surface Tiers — Dark elevation hierarchy ────────────────────── */
+    --color-surface:                   #111024;
+    --color-background:                #111024;
+    --color-surface-bright:            #37355a;
+    --color-surface-dim:               #111024;
+    --color-surface-variant:           #1e1c38;
+    --color-surface-container-lowest:  #0b0a1a;
+    --color-surface-container-low:     #191736;
+    --color-surface-container:         #1e1c3c;
+    --color-surface-container-high:    #282647;
+    --color-surface-container-highest: #333152;
+
+    /* ── On-Surface — Light text on dark ─────────────────────────────── */
+    --color-on-surface:         #e4e1f6;
+    --color-on-surface-variant: #c9c4d5;
+    --color-on-background:      #e4e1f6;
+    --color-inverse-surface:    #e4e1f6;
+    --color-inverse-on-surface: #2d2e4b;
+    --color-surface-tint:       #c8bfff;
+
+    /* ── Outline — lighter in dark ───────────────────────────────────── */
+    --color-outline:         #928f9e;
+    --color-outline-variant: #484563;
+
+    /* ── Error — softer in dark ──────────────────────────────────────── */
+    --color-error:             #ffb4ab;
+    --color-error-container:   #93000a;
+    --color-on-error:          #690005;
+    --color-on-error-container: #ffdad6;
+}
+
 /* ── Utility: Primary Gradient (CTA buttons) ─────────────────────────── */
 @layer utilities {
     .primary-gradient {
         background: linear-gradient(135deg, #34179a 0%, #4b36b1 100%);
+    }
+    .dark .primary-gradient {
+        background: linear-gradient(135deg, #4b36b1 0%, #6b52d4 100%);
     }
     .glass-card {
         background: rgba(252, 248, 255, 0.80);
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
     }
+    .dark .glass-card {
+        background: rgba(17, 16, 36, 0.80);
+    }
     .glass-header {
         background: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
     }
-    /* "Whisper Shadow" for floating elements */
-    .shadow-whisper {
-        box-shadow: 0 12px 40px rgba(24, 25, 52, 0.06);
+    .dark .glass-header {
+        background: rgba(25, 23, 54, 0.88);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
     }
+
+    /* ── Enhanced Shadows — visible border + layered shadow ────────── */
+    .shadow-whisper {
+        border: 1px solid rgba(201, 196, 213, 0.35);
+        box-shadow:
+            0 1px 2px rgba(24, 25, 52, 0.06),
+            0 4px 14px rgba(24, 25, 52, 0.08),
+            0 14px 44px rgba(24, 25, 52, 0.06);
+    }
+    .dark .shadow-whisper {
+        border-color: rgba(72, 69, 99, 0.55);
+        box-shadow:
+            0 1px 3px rgba(0, 0, 0, 0.35),
+            0 4px 14px rgba(0, 0, 0, 0.28),
+            0 14px 44px rgba(0, 0, 0, 0.22);
+    }
+
     /* Ambient glow for primary CTAs */
     .shadow-primary-glow {
-        box-shadow: 0 8px 24px rgba(52, 23, 154, 0.20);
+        box-shadow: 0 8px 24px rgba(52, 23, 154, 0.25);
     }
+    .dark .shadow-primary-glow {
+        box-shadow: 0 8px 24px rgba(107, 82, 212, 0.35);
+    }
+
+    /* Card border utility — visible stroke to separate from background */
+    .card-stroke {
+        border: 1px solid color-mix(in srgb, var(--color-outline-variant) 35%, transparent);
+    }
+
     /* Headline font shortcut */
     .font-headline {
         font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
@@ -115,10 +211,91 @@
 /* ── Base: Scrollbar & Selection ─────────────────────────────────────── */
 @layer base {
     html { scroll-behavior: smooth; }
+
+    /* Smooth transition for dark mode toggle */
+    html.transitioning,
+    html.transitioning *,
+    html.transitioning *::before,
+    html.transitioning *::after {
+        transition: background-color 0.3s ease, color 0.2s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+    }
+
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #c9c4d5; border-radius: 999px; }
     ::-webkit-scrollbar-thumb:hover { background: #787585; }
+
+    .dark ::-webkit-scrollbar-thumb { background: #484563; }
+    .dark ::-webkit-scrollbar-thumb:hover { background: #928f9e; }
+
     ::selection { background: #e5deff; color: #190064; }
+    .dark ::selection { background: #3d2699; color: #e5deff; }
+
     [x-cloak] { display: none !important; }
+}
+
+/* ── Component: Enhanced card appearance ──────────────────────────────── */
+@layer components {
+    /* Standard card: visible border + shadow + spacing */
+    .omni-card {
+        background-color: var(--color-surface-container-lowest);
+        border: 1px solid color-mix(in srgb, var(--color-outline-variant) 35%, transparent);
+        border-radius: 1rem;
+        box-shadow:
+            0 1px 2px rgba(24, 25, 52, 0.05),
+            0 4px 12px rgba(24, 25, 52, 0.08),
+            0 12px 40px rgba(24, 25, 52, 0.06);
+    }
+    .dark .omni-card {
+        border-color: color-mix(in srgb, var(--color-outline-variant) 50%, transparent);
+        box-shadow:
+            0 1px 2px rgba(0, 0, 0, 0.30),
+            0 4px 12px rgba(0, 0, 0, 0.25),
+            0 12px 40px rgba(0, 0, 0, 0.20);
+    }
+
+    /* Stat card: subtle inner glow */
+    .omni-stat-card {
+        background-color: var(--color-surface-container-lowest);
+        border: 1px solid color-mix(in srgb, var(--color-outline-variant) 30%, transparent);
+        border-radius: 1rem;
+        box-shadow:
+            0 1px 3px rgba(24, 25, 52, 0.04),
+            0 4px 16px rgba(24, 25, 52, 0.06);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .omni-stat-card:hover {
+        transform: translateY(-1px);
+        box-shadow:
+            0 2px 8px rgba(24, 25, 52, 0.08),
+            0 8px 24px rgba(24, 25, 52, 0.10);
+    }
+    .dark .omni-stat-card {
+        border-color: color-mix(in srgb, var(--color-outline-variant) 50%, transparent);
+        box-shadow:
+            0 1px 3px rgba(0, 0, 0, 0.25),
+            0 4px 16px rgba(0, 0, 0, 0.20);
+    }
+    .dark .omni-stat-card:hover {
+        box-shadow:
+            0 2px 8px rgba(0, 0, 0, 0.30),
+            0 8px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Dark sidebar stays the same deep purple */
+    .dark .sidebar-dark {
+        background: #0e0a2e;
+    }
+
+    /* SweetAlert2 dark mode overrides */
+    .dark .swal2-popup {
+        background: var(--color-surface-container) !important;
+        color: var(--color-on-surface) !important;
+    }
+    .dark .swal2-title {
+        color: var(--color-on-surface) !important;
+    }
+    .dark .swal2-html-container {
+        color: var(--color-on-surface-variant) !important;
+    }
 }

@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="id" class="h-full">
 <head>
+    {{-- Prevent flash of unstyled content for dark mode --}}
+    <script>
+        (function() {
+            const t = localStorage.getItem('theme');
+            if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -27,6 +36,10 @@
         /* SweetAlert2 OmniCore overrides */
         .swal2-popup  { border-radius: 1rem !important; font-family: 'Inter', sans-serif !important; }
         .swal2-confirm { border-radius: 0.625rem !important; }
+        /* Dark mode SweetAlert */
+        .dark .swal2-popup  { background: #1e1c3c !important; color: #e4e1f6 !important; }
+        .dark .swal2-title  { color: #e4e1f6 !important; }
+        .dark .swal2-html-container { color: #c9c4d5 !important; }
     </style>
 </head>
 <body class="h-full bg-surface font-sans text-on-surface antialiased">
@@ -36,7 +49,7 @@
      ════════════════════════════════════════════════════════════════════ --}}
 
 {{-- ═══ SIDEBAR ════════════════════════════════════════════════════════ --}}
-<aside class="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col p-6" style="background: #1e1449;">
+<aside class="sidebar-dark fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-white/5 p-6" style="background: #1e1449;">
 
     {{-- Brand --}}
     <a href="{{ route('dashboard') }}" class="mb-10 flex items-center gap-3">
@@ -115,7 +128,7 @@
 </aside>
 
 {{-- ═══ TOP HEADER ══════════════════════════════════════════════════════ --}}
-<header class="fixed left-64 right-0 top-0 z-40 flex h-16 items-center justify-between px-8 glass-header shadow-whisper">
+<header class="fixed left-64 right-0 top-0 z-40 flex h-16 items-center justify-between border-b border-outline-variant/20 px-8 glass-header shadow-whisper">
 
     {{-- Page title slot (optional) --}}
     <div>
@@ -124,7 +137,25 @@
         </p>
     </div>
 
-    {{-- Right: User Dropdown --}}
+    {{-- Right: Dark Mode Toggle + User Dropdown --}}
+    <div class="flex items-center gap-3">
+
+    {{-- Dark/Light Toggle --}}
+    <button
+        x-data="{ dark: document.documentElement.classList.contains('dark') }"
+        @click="
+            dark = !dark;
+            document.documentElement.classList.add('transitioning');
+            document.documentElement.classList.toggle('dark', dark);
+            localStorage.setItem('theme', dark ? 'dark' : 'light');
+            setTimeout(() => document.documentElement.classList.remove('transitioning'), 350);
+        "
+        class="flex h-9 w-9 items-center justify-center rounded-xl border border-outline-variant/30 bg-surface-container-lowest text-on-surface-variant shadow-whisper transition hover:bg-surface-container-low hover:text-primary"
+        :title="dark ? 'Switch to light mode' : 'Switch to dark mode'">
+        <span x-show="!dark" class="material-symbols-outlined text-[20px]">dark_mode</span>
+        <span x-show="dark" x-cloak class="material-symbols-outlined text-[20px]">light_mode</span>
+    </button>
+
     <div x-data="{ open: false }" class="relative" @keydown.escape="open = false">
         <button @click="open = !open" @click.away="open = false"
                 class="flex items-center gap-2.5 rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-3 py-1.5 text-sm font-medium text-on-surface shadow-whisper transition hover:bg-surface-container-low">
@@ -190,6 +221,7 @@
                 </form>
             </div>
         </div>
+    </div>
     </div>
 </header>
 

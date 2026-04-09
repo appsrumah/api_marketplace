@@ -1,9 +1,9 @@
 @extends('layouts.app')
 @section('title', 'Produk Saya')
-@section('breadcrumb', 'Produk — Manajemen Katalog')
+@section('breadcrumb', 'Produk â€” Manajemen Katalog')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-8">
 
     {{-- ===== HEADER ===== --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -81,14 +81,14 @@
                 <select name="status"
                         class="w-full rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-3 py-2.5 text-sm text-on-surface transition focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/10">
                     <option value="ALL"  {{ request('status', 'ALL') === 'ALL'  ? 'selected' : '' }}>Semua Status</option>
-                    <option value="ACTIVATE"             {{ request('status') === 'ACTIVATE'             ? 'selected' : '' }}>✅ Aktif</option>
-                    <option value="DRAFT"                {{ request('status') === 'DRAFT'                ? 'selected' : '' }}>📝 Draft</option>
-                    <option value="PENDING"              {{ request('status') === 'PENDING'              ? 'selected' : '' }}>⏳ Pending</option>
-                    <option value="FAILED"               {{ request('status') === 'FAILED'               ? 'selected' : '' }}>❌ Gagal</option>
-                    <option value="SELLER_DEACTIVATED"   {{ request('status') === 'SELLER_DEACTIVATED'   ? 'selected' : '' }}>🔕 Nonaktif (Seller)</option>
-                    <option value="PLATFORM_DEACTIVATED" {{ request('status') === 'PLATFORM_DEACTIVATED' ? 'selected' : '' }}>🚫 Nonaktif (Platform)</option>
-                    <option value="FREEZE"               {{ request('status') === 'FREEZE'               ? 'selected' : '' }}>❄️ Frozen</option>
-                    <option value="DELETED"              {{ request('status') === 'DELETED'              ? 'selected' : '' }}>🗑️ Dihapus</option>
+                    <option value="ACTIVATE"             {{ request('status') === 'ACTIVATE'             ? 'selected' : '' }}>âœ… Aktif</option>
+                    <option value="DRAFT"                {{ request('status') === 'DRAFT'                ? 'selected' : '' }}>ðŸ“ Draft</option>
+                    <option value="PENDING"              {{ request('status') === 'PENDING'              ? 'selected' : '' }}>â³ Pending</option>
+                    <option value="FAILED"               {{ request('status') === 'FAILED'               ? 'selected' : '' }}>âŒ Gagal</option>
+                    <option value="SELLER_DEACTIVATED"   {{ request('status') === 'SELLER_DEACTIVATED'   ? 'selected' : '' }}>ðŸ”• Nonaktif (Seller)</option>
+                    <option value="PLATFORM_DEACTIVATED" {{ request('status') === 'PLATFORM_DEACTIVATED' ? 'selected' : '' }}>ðŸš« Nonaktif (Platform)</option>
+                    <option value="FREEZE"               {{ request('status') === 'FREEZE'               ? 'selected' : '' }}>â„ï¸ Frozen</option>
+                    <option value="DELETED"              {{ request('status') === 'DELETED'              ? 'selected' : '' }}>ðŸ—‘ï¸ Dihapus</option>
                 </select>
             </div>
 
@@ -193,10 +193,10 @@
                                         <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-on-surface-variant">
                                             @if($product->account)
                                                 <span class="text-primary">{{ $product->account->shop_name ?? $product->account->seller_name }}</span>
-                                                <span>•</span>
+                                                <span>â€¢</span>
                                             @endif
                                             <span class="font-mono">ID: {{ $product->product_id ?: '-' }}</span>
-                                            <span>•</span>
+                                            <span>â€¢</span>
                                             <span class="font-mono">SKU: {{ $product->sku_id ?: '-' }}</span>
                                         </div>
                                     </div>
@@ -228,7 +228,7 @@
                                         {{ $product->seller_sku }}
                                     </span>
                                 @else
-                                    <span class="text-xs text-on-surface-variant/40">—</span>
+                                    <span class="text-xs text-on-surface-variant/40">â€”</span>
                                 @endif
                             </td>
 

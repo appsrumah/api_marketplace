@@ -1,12 +1,12 @@
 @extends('layouts.app')
-@section('title', 'Detail Produk — ' . Str::limit($detail->title, 30))
-@section('breadcrumb', 'Produk — Detail')
+@section('title', 'Detail Produk â€” ' . Str::limit($detail->title, 30))
+@section('breadcrumb', 'Produk â€” Detail')
 
 @section('content')
 
-{{-- ═══════════════════════════════════════════════════════════
+{{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      BACK + TITLE
-═══════════════════════════════════════════════════════════════ --}}
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
 <div class="mb-6 flex flex-wrap items-start gap-3">
     <a href="{{ route('products.index') }}"
        class="inline-flex items-center gap-1.5 rounded-xl bg-surface-container px-3 py-2 text-sm font-medium text-on-surface-variant transition hover:bg-surface-container-high">
@@ -32,10 +32,10 @@
     </a>
 </div>
 
-<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-    {{-- ═══════════════════════════════════════════════════════════
+<div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          LEFT: Main content
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="lg:col-span-2 space-y-6">
 
         {{-- Images --}}
@@ -146,10 +146,10 @@
         @endif
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          RIGHT: Sidebar
-    ═══════════════════════════════════════════════════════════════ --}}
-    <div class="space-y-6">
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+    <div class="space-y-8">
 
         {{-- Product Info --}}
         <div class="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
@@ -193,7 +193,7 @@
                 @if($detail->package_length || $detail->package_width || $detail->package_height)
                     <div class="flex justify-between">
                         <span class="text-on-surface-variant">Dimensi</span>
-                        <span class="font-medium text-on-surface">{{ $detail->package_length ?? '-' }} × {{ $detail->package_width ?? '-' }} × {{ $detail->package_height ?? '-' }} {{ $detail->package_dimensions_unit }}</span>
+                        <span class="font-medium text-on-surface">{{ $detail->package_length ?? '-' }} Ã— {{ $detail->package_width ?? '-' }} Ã— {{ $detail->package_height ?? '-' }} {{ $detail->package_dimensions_unit }}</span>
                     </div>
                 @endif
             </div>

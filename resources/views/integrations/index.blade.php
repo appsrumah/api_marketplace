@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Pusat Integrasi')
-@section('breadcrumb', 'Integrasi — Pusat Koneksi Marketplace')
+@section('breadcrumb', 'Integrasi Ã¢â‚¬â€ Pusat Koneksi Marketplace')
 
 @section('content')
 <div class="space-y-8">
@@ -15,7 +15,7 @@
     </div>
 
     {{-- ===== STATS CARDS ===== --}}
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-5 sm:grid-cols-4">
         <div class="rounded-2xl bg-surface-container-lowest p-5 shadow-whisper">
             <p class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Channel Tersedia</p>
             <p class="mt-1.5 font-headline text-2xl font-extrabold text-on-surface">{{ $stats['total_channels'] }}</p>
@@ -35,7 +35,7 @@
     </div>
 
     {{-- ===== MARKETPLACE CHANNELS ===== --}}
-    <div class="space-y-6">
+    <div class="space-y-8">
         @foreach($channels as $channel)
         @php
             $channelCode   = strtoupper($channel->identifier);
@@ -136,7 +136,7 @@
                             <div class="flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
                                 @if($account->seller_name && $account->shop_name)
                                     <span>{{ $account->seller_name }}</span>
-                                    <span class="text-outline-variant">•</span>
+                                    <span class="text-outline-variant">Ã¢â‚¬Â¢</span>
                                 @endif
                                 {{-- Status badge --}}
                                 @if($isActive)
@@ -158,12 +158,12 @@
                                 @endif
 
                                 @if($account->user)
-                                    <span class="text-outline-variant">•</span>
+                                    <span class="text-outline-variant">Ã¢â‚¬Â¢</span>
                                     <span>Oleh: {{ $account->user->name }}</span>
                                 @endif
 
                                 @if($channelCode === 'TIKTOK')
-                                    <span class="text-outline-variant">•</span>
+                                    <span class="text-outline-variant">Ã¢â‚¬Â¢</span>
                                     <span>{{ $account->produk_count ?? $account->produk()->count() }} produk</span>
                                 @endif
                             </div>

@@ -1,13 +1,13 @@
 @extends('layouts.app')
-@section('title', 'Detail Akun — ' . ($account->shop_name ?? $account->seller_name))
-@section('breadcrumb', 'Integrasi — Detail Akun')
+@section('title', 'Detail Akun â€” ' . ($account->shop_name ?? $account->seller_name))
+@section('breadcrumb', 'Integrasi â€” Detail Akun')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-8">
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          BACK + BREADCRUMB
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="flex items-center gap-2 text-sm">
         <a href="{{ route('integrations.index') }}"
            class="inline-flex items-center gap-1.5 rounded-xl bg-surface-container px-3 py-1.5 font-medium text-on-surface-variant transition hover:bg-surface-container-high">
@@ -24,9 +24,9 @@
         $channelColor = $account->channel->color ?? '#6b7280';
     @endphp
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          ACCOUNT HEADER CARD
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper"
          style="border-top: 4px solid {{ $channelColor }};">
         <div class="p-6">
@@ -110,9 +110,9 @@
         </div>
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          INFO CARDS
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="grid gap-6 lg:grid-cols-2">
 
         {{-- Informasi Akun --}}
@@ -135,7 +135,7 @@
                 </div>
                 <div class="flex justify-between py-2.5">
                     <dt class="text-on-surface-variant">Shop Cipher</dt>
-                    <dd class="text-on-surface">{{ $account->shop_cipher ? '✅ Tersedia' : '❌ Belum ada' }}</dd>
+                    <dd class="text-on-surface">{{ $account->shop_cipher ? 'âœ… Tersedia' : 'âŒ Belum ada' }}</dd>
                 </div>
                 <div class="flex justify-between py-2.5">
                     <dt class="text-on-surface-variant">Outlet POS</dt>
@@ -153,7 +153,7 @@
         </div>
 
         {{-- Statistik Produk + Token Status --}}
-        <div class="space-y-6">
+        <div class="space-y-8">
             <div class="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
                 <div class="border-b border-outline-variant/20 bg-surface-container-low px-5 py-3.5">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Statistik</h3>
@@ -193,11 +193,11 @@
                         <dd>
                             @if($account->isTokenExpired())
                                 <span class="inline-flex items-center gap-1 rounded-full bg-error-container/40 px-2 py-0.5 text-xs font-semibold text-on-error-container">
-                                    ❌ Expired
+                                    âŒ Expired
                                 </span>
                             @else
                                 <span class="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 text-xs font-semibold text-on-secondary-container">
-                                    ✅ Valid
+                                    âœ… Valid
                                 </span>
                             @endif
                         </dd>
@@ -211,11 +211,11 @@
                         <dd>
                             @if($account->isRefreshTokenExpired())
                                 <span class="inline-flex items-center gap-1 rounded-full bg-error-container/40 px-2 py-0.5 text-xs font-semibold text-on-error-container">
-                                    ❌ Expired
+                                    âŒ Expired
                                 </span>
                             @else
                                 <span class="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 text-xs font-semibold text-on-secondary-container">
-                                    ✅ Valid
+                                    âœ… Valid
                                 </span>
                             @endif
                         </dd>
@@ -233,9 +233,9 @@
         </div>
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          PENGATURAN AKUN
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
         <div class="border-b border-outline-variant/20 bg-surface-container-low px-5 py-3.5">
             <h3 class="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Pengaturan Akun</h3>
@@ -260,7 +260,7 @@
                     <label class="mb-1 block text-sm font-semibold text-on-surface">Warehouse</label>
                     <select name="warehouse_id"
                             class="w-full rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-4 py-2.5 text-sm text-on-surface shadow-sm transition focus:border-primary focus:ring-2 focus:ring-primary/10 focus:outline-none">
-                        <option value="">— Tidak ada —</option>
+                        <option value="">â€” Tidak ada â€”</option>
                         @foreach(\App\Models\Warehouse::all() as $wh)
                             <option value="{{ $wh->id }}" {{ $account->warehouse_id == $wh->id ? 'selected' : '' }}>
                                 {{ $wh->name }}

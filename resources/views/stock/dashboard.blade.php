@@ -1,13 +1,13 @@
 @extends('layouts.app')
 @section('title', 'Sinkronisasi Stok')
-@section('breadcrumb', 'Stok — Sinkronisasi Otomatis')
+@section('breadcrumb', 'Stok â€” Sinkronisasi Otomatis')
 
 @section('content')
 <div x-data="stockSync()" x-cloak>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          HEADER
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
             <p class="text-xs font-bold uppercase tracking-widest text-secondary">Inventory</p>
@@ -41,10 +41,10 @@
         </div>
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          STATS CARDS
-    ═══════════════════════════════════════════════════════════════ --}}
-    <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+    <div class="mt-6 grid grid-cols-2 gap-5 lg:grid-cols-4">
 
         {{-- Siap Sync --}}
         <div class="rounded-2xl bg-secondary-container/40 p-5 shadow-whisper">
@@ -103,9 +103,9 @@
         </div>
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          OUTPUT PANEL (muncul setelah klik tombol)
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div x-show="loading || result || error" x-transition
          class="mt-6 overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
 
@@ -144,7 +144,7 @@
                 </div>
                 <div class="flex-1">
                     <p class="font-bold text-on-surface">
-                        ✅ <span x-text="result.queued"></span> Jobs berhasil masuk ke antrian!
+                        âœ… <span x-text="result.queued"></span> Jobs berhasil masuk ke antrian!
                     </p>
                     <p class="mt-1 text-sm text-on-surface-variant">Klik <strong class="text-primary">Proses Queue</strong> untuk mulai push stok ke TikTok/Tokopedia.</p>
                     <div class="mt-3 flex flex-wrap gap-2" x-show="result.detail && result.detail.length">
@@ -156,7 +156,7 @@
                         </template>
                     </div>
                     <div x-show="result.skipped && result.skipped.length" class="mt-2">
-                        <p class="text-xs text-on-surface-variant">⚠ Dilewati: <span x-text="result.skipped.join(', ')"></span></p>
+                        <p class="text-xs text-on-surface-variant">âš  Dilewati: <span x-text="result.skipped.join(', ')"></span></p>
                     </div>
                 </div>
             </div>
@@ -169,7 +169,7 @@
                     <span class="material-symbols-outlined text-[16px]">bolt</span>
                 </div>
                 <div class="flex-1">
-                    <p class="font-bold text-on-surface">⚡ Queue worker selesai berjalan</p>
+                    <p class="font-bold text-on-surface">âš¡ Queue worker selesai berjalan</p>
                     <div class="mt-2 flex flex-wrap gap-3">
                         <span class="inline-flex items-center gap-1 rounded-lg bg-primary-fixed px-3 py-1.5 text-xs font-semibold text-primary">
                             Exit code: <span x-text="result.exit_code" class="ml-1"></span>
@@ -184,12 +184,12 @@
                     </div>
                     <div x-show="result.jobs_remaining > 0" class="mt-3 rounded-xl bg-tertiary-fixed p-3">
                         <p class="text-xs text-on-tertiary-fixed-variant">
-                            ⚠ Masih ada <strong x-text="result.jobs_remaining"></strong> jobs tersisa. Klik <strong>Proses Queue</strong> lagi,
+                            âš  Masih ada <strong x-text="result.jobs_remaining"></strong> jobs tersisa. Klik <strong>Proses Queue</strong> lagi,
                             atau biarkan cron yang memproses secara otomatis.
                         </p>
                     </div>
                     <div x-show="result.jobs_remaining === 0" class="mt-3 rounded-xl bg-secondary-container/30 p-3">
-                        <p class="text-xs text-on-secondary-container">✅ Semua jobs selesai diproses! Stok sudah di-update ke TikTok/Tokopedia.</p>
+                        <p class="text-xs text-on-secondary-container">âœ… Semua jobs selesai diproses! Stok sudah di-update ke TikTok/Tokopedia.</p>
                     </div>
                 </div>
             </div>
@@ -203,7 +203,7 @@
                 </div>
                 <div>
                     <p class="font-bold text-on-surface">
-                        ✅ <span x-text="result.queued"></span> jobs untuk akun <em x-text="result.account"></em>
+                        âœ… <span x-text="result.queued"></span> jobs untuk akun <em x-text="result.account"></em>
                     </p>
                     <p class="mt-1 text-sm text-on-surface-variant">Klik <strong class="text-primary">Proses Queue</strong> untuk push ke TikTok/Tokopedia.</p>
                 </div>
@@ -217,22 +217,22 @@
                     <span class="material-symbols-outlined text-[16px]">error</span>
                 </div>
                 <div>
-                    <p class="font-bold text-on-error-container">❌ Error dari server</p>
+                    <p class="font-bold text-on-error-container">âŒ Error dari server</p>
                     <p class="mt-1 text-sm text-on-error-container/80" x-text="result.pesan"></p>
-                    <p x-show="result.tip" class="mt-1 text-xs text-on-error-container/60" x-text="'💡 ' + result.tip"></p>
+                    <p x-show="result.tip" class="mt-1 text-xs text-on-error-container/60" x-text="'ðŸ’¡ ' + result.tip"></p>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          AKUN CARDS
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="mt-8">
         <h2 class="font-headline text-lg font-bold text-on-surface">Status per Akun</h2>
         <p class="mt-1 text-sm text-on-surface-variant">Kelola dan monitor sync stok per akun TikTok Shop.</p>
 
-        <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div class="mt-4 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             @forelse($accounts as $account)
             <div class="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper transition hover:shadow-md">
 
@@ -245,7 +245,7 @@
                             </div>
                             <div class="min-w-0">
                                 <h3 class="truncate text-sm font-bold text-on-surface">{{ $account->seller_name }}</h3>
-                                <p class="text-[10px] text-on-surface-variant">Outlet ID: {{ $account->id_outlet ?? '—' }}</p>
+                                <p class="text-[10px] text-on-surface-variant">Outlet ID: {{ $account->id_outlet ?? 'â€”' }}</p>
                             </div>
                         </div>
                         {{-- Status badges --}}
@@ -261,7 +261,7 @@
                             @endif
                             @if(!$account->id_outlet)
                                 <span class="inline-flex items-center gap-1 rounded-full bg-tertiary-fixed px-2 py-0.5 text-[10px] font-semibold text-on-tertiary-fixed-variant">
-                                    ⚠ Outlet belum set
+                                    âš  Outlet belum set
                                 </span>
                             @endif
                         </div>
@@ -316,7 +316,7 @@
                 @if(!$account->id_outlet)
                 <div class="border-t border-outline-variant/20 bg-tertiary-fixed/40 px-4 py-2">
                     <p class="text-[10px] text-on-tertiary-fixed-variant">
-                        ⚠ <strong>id_outlet belum di-set.</strong>
+                        âš  <strong>id_outlet belum di-set.</strong>
                         POST ke <code class="font-mono text-[10px]">/stock/{{ $account->id }}/set-outlet</code>
                         dengan <code class="font-mono text-[10px]">{ "id_outlet": X }</code>
                     </p>
@@ -327,7 +327,7 @@
                 @if($account->token_expired)
                 <div class="border-t border-outline-variant/20 bg-error-container/30 px-4 py-2">
                     <p class="text-[10px] text-on-error-container">
-                        ❌ <strong>Token expired.</strong>
+                        âŒ <strong>Token expired.</strong>
                         <a href="{{ route('tiktok.connect') }}" class="font-semibold underline">Hubungkan ulang akun</a> di dashboard.
                     </p>
                 </div>
@@ -341,9 +341,9 @@
         </div>
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          PRODUK SIAP SYNC TABLE
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="mt-10">
         <div class="flex items-center justify-between">
             <div>
@@ -409,7 +409,7 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     <span class="block max-w-35 truncate font-mono text-xs text-on-surface-variant" title="{{ $produk->sku_id }}">
-                                        {{ $produk->sku_id ?: '—' }}
+                                        {{ $produk->sku_id ?: 'â€”' }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-center">
@@ -449,9 +449,9 @@
         </div>
     </div>
 
-    {{-- ═══════════════════════════════════════════════════════════
+    {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          INFO CRON (footer panel)
-    ═══════════════════════════════════════════════════════════════ --}}
+    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
     <div class="mt-8 rounded-2xl bg-surface-container-low p-5">
         <h3 class="flex items-center gap-2 text-sm font-bold text-on-surface">
             <span class="material-symbols-outlined text-[18px] text-on-surface-variant">schedule</span>
@@ -460,12 +460,12 @@
         <p class="mt-1 text-xs text-on-surface-variant">Pasang 2 cron job ini di cPanel agar stok sync otomatis tanpa perlu klik manual.</p>
         <div class="mt-3 grid gap-3 sm:grid-cols-2">
             <div class="rounded-xl bg-surface-container-lowest p-3 shadow-whisper">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Cron 1 — Dispatch Jobs (tiap 30 menit)</p>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Cron 1 â€” Dispatch Jobs (tiap 30 menit)</p>
                 <code class="mt-1.5 block break-all text-[10px] leading-relaxed text-primary">curl -s "{{ config('app.url') }}/stock/cron-sync-all?secret={{ config('app.stock_sync_secret') }}"</code>
                 <p class="mt-1 text-[10px] text-on-surface-variant/60">Waktu cPanel: <code>*/30 * * * *</code></p>
             </div>
             <div class="rounded-xl bg-surface-container-lowest p-3 shadow-whisper">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Cron 2 — Proses Queue (tiap menit)</p>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Cron 2 â€” Proses Queue (tiap menit)</p>
                 <code class="mt-1.5 block break-all text-[10px] leading-relaxed text-primary">curl -s "{{ config('app.url') }}/stock/run-queue?secret={{ config('app.stock_sync_secret') }}"</code>
                 <p class="mt-1 text-[10px] text-on-surface-variant/60">Waktu cPanel: <code>* * * * *</code></p>
             </div>
