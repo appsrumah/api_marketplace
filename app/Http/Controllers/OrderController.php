@@ -347,19 +347,44 @@ class OrderController extends Controller
         );
 
         // Save order items
+        // CATATAN: TikTok API mengembalikan 1 line_item PER UNIT (bukan per SKU).
+        // Contoh: order 1 produk qty 20 → 20 baris line_items dengan sku_id sama, masing-masing qty=1.
+        // Solusi: group by sku_id dulu, jumlahkan qty-nya, baru simpan.
         $lineItems = $apiOrder['line_items'] ?? $apiOrder['item_list'] ?? [];
+
+        $groupedItems = [];
         foreach ($lineItems as $item) {
+            $skuId = $item['sku_id'] ?? null;
+
+            // Jika tidak ada sku_id, fallback ke id (line_item_id) — simpan as-is
+            if ($skuId === null) {
+                $skuId = $item['id'] ?? uniqid();
+                $groupedItems[$skuId] = $item;
+                $groupedItems[$skuId]['quantity'] = (int) ($item['quantity'] ?? 1);
+                continue;
+            }
+
+            if (!isset($groupedItems[$skuId])) {
+                $groupedItems[$skuId]             = $item;
+                $groupedItems[$skuId]['quantity'] = (int) ($item['quantity'] ?? 1);
+            } else {
+                // Akumulasi qty untuk SKU yang sama (TikTok split per unit)
+                $groupedItems[$skuId]['quantity'] += (int) ($item['quantity'] ?? 1);
+            }
+        }
+
+        foreach ($groupedItems as $skuId => $item) {
             OrderItem::updateOrCreate(
                 [
                     'order_id' => $order->id,
-                    'sku_id'   => $item['sku_id'] ?? $item['id'] ?? uniqid(),
+                    'sku_id'   => $skuId,
                 ],
                 [
                     'product_id'        => $item['product_id'] ?? null,
                     'product_name'      => $item['product_name'] ?? null,
                     'sku_name'          => $item['sku_name'] ?? null,
                     'seller_sku'        => $item['seller_sku'] ?? null,
-                    'quantity'          => $item['quantity'] ?? 1,
+                    'quantity'          => $item['quantity'],
                     'original_price'    => $item['original_price'] ?? 0,
                     'sale_price'        => $item['sale_price'] ?? 0,
                     'platform_discount' => $item['platform_discount'] ?? 0,
