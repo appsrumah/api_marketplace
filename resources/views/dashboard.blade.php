@@ -11,7 +11,7 @@
         <h1 class="font-headline text-3xl font-extrabold tracking-tight text-primary">Dashboard</h1>
         <p class="mt-1.5 text-sm text-on-surface-variant">Kelola akun TikTok Shop &amp; produk Anda di satu tempat.</p>
     </div>
-    <a href="{{ route('integrations.connect') }}"
+    <a href="{{ route('integrations.connect', 'tiktok') }}"
        class="inline-flex items-center gap-2 rounded-xl primary-gradient px-5 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90 active:scale-[0.98]">
         <span class="material-symbols-outlined text-[18px]">add</span>
         Tambah Akun TikTok
