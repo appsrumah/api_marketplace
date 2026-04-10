@@ -11,7 +11,7 @@
         <h1 class="font-headline text-3xl font-extrabold tracking-tight text-primary">Dashboard</h1>
         <p class="mt-1.5 text-sm text-on-surface-variant">Kelola akun TikTok Shop &amp; produk Anda di satu tempat.</p>
     </div>
-    <a href="{{ route('integrations.connect', 'tiktok') }}"
+    <a href="{{ route('integrations.index') }}"
        class="inline-flex items-center gap-2 rounded-xl primary-gradient px-5 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90 active:scale-[0.98]">
         <span class="material-symbols-outlined text-[18px]">add</span>
         Tambah Akun TikTok
@@ -159,7 +159,7 @@
             </div>
             <h3 class="mt-4 font-headline text-base font-bold text-on-surface">Belum ada akun</h3>
             <p class="mt-1 text-sm text-on-surface-variant">Hubungkan akun TikTok Shop Anda untuk memulai.</p>
-            <a href="{{ route('tiktok.connect') }}"
+            <a href="{{ route('integrations.index') }}"
                class="mt-5 inline-flex items-center gap-2 rounded-xl primary-gradient px-5 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90">
                 <span class="material-symbols-outlined text-[18px]">add</span>
                 Tambah Akun Pertama

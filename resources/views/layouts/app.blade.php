@@ -119,7 +119,7 @@
 
     {{-- Bottom: Tambah Akun CTA --}}
     <div class="mt-6 border-t border-white/10 pt-5">
-        <a href="{{ route('integrations.connect', 'tiktok') }}"
+        <a href="{{ route('integrations.index') }}"
            class="flex w-full items-center justify-center gap-2 rounded-xl primary-gradient px-4 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90 active:scale-[0.98]">
             <span class="material-symbols-outlined text-[18px]">add</span>
             Tambah Akun
