@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Produk Saya')
-@section('breadcrumb', 'Produk â€” Manajemen Katalog')
+@section('breadcrumb', 'Produk Manajemen Katalog')
 
 @section('content')
 <div class="space-y-8">

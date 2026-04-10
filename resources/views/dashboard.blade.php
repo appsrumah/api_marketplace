@@ -1,10 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Dashboard')
-@section('breadcrumb', 'Dashboard â€” Ringkasan')
+@section('breadcrumb', 'Dashboard Ringkasan')
 
 @section('content')
 
-{{-- â•â•â• HEADER â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+{{-- HEADER  --}}
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
         <p class="mb-1 text-xs font-bold uppercase tracking-widest text-secondary">Omni-channel Management</p>
@@ -18,7 +18,7 @@
     </a>
 </div>
 
-{{-- â•â•â• STATS CARDS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+{{-- STATS CARDS  --}}
 <div class="mt-8 grid grid-cols-2 gap-5 lg:grid-cols-5">
 
     {{-- Total Akun --}}
@@ -82,7 +82,7 @@
     </div>
 </div>
 
-{{-- â•â•â• STOCK SYNC WIDGET â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+{{-- STOCK SYNC WIDGET --}}
 <div class="mt-8 overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
 
     {{-- Header --}}
@@ -147,7 +147,7 @@
     </div>
 </div>
 
-{{-- â•â•â• ACCOUNT LIST â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
+{{-- ACCOUNT LIST  --}}
 <div class="mt-10">
     <h2 class="font-headline text-lg font-bold text-on-surface">Akun Terhubung</h2>
     <p class="mt-1 text-sm text-on-surface-variant">Daftar akun TikTok Shop yang sudah ditautkan.</p>
@@ -196,9 +196,9 @@
                             <h3 class="truncate font-headline text-base font-bold text-on-surface">{{ $account->seller_name }}</h3>
                             <p class="text-xs text-on-surface-variant">
                                 {{ $account->seller_base_region }}
-                                @if($account->shop_cipher)
-                                    Â· <span class="font-mono text-[10px]">{{ Str::limit($account->shop_cipher, 20) }}</span>
-                                @endif
+                                {{-- @if($account->shop_cipher)
+                                · <span class="font-mono text-[10px]">{{ Str::limit($account->shop_cipher, 20) }}</span>
+                                @endif --}}
                             </p>
                         </div>
                     </div>

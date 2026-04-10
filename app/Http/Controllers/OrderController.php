@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Services\PosOrderService;
 use App\Services\TiktokApiService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -102,10 +103,10 @@ class OrderController extends Controller
             // Build filters
             $filters = [];
 
-            // Default: last 7 days
+            // Default: last 1 day (24 jam ke belakang)
             $from = $request->filled('date_from')
                 ? strtotime($request->date_from)
-                : now()->subDays(7)->timestamp;
+                : now()->subDay()->timestamp;
             $to = $request->filled('date_to')
                 ? strtotime($request->date_to . ' 23:59:59')
                 : time();
@@ -282,6 +283,140 @@ class OrderController extends Controller
         $type = $results['failed'] > 0 ? 'error' : ($results['success'] > 0 ? 'success' : 'info');
 
         return back()->with($type, $msg);
+    }
+
+    /* ===================================================================
+     *  CRON — Sync order SEMUA akun (24 jam ke belakang) + push ke POS
+     *  GET /orders/cron-sync-all?secret=xxx
+     *  Diamankan dengan secret key — dipanggil dari cPanel Cron Jobs via curl
+     * =================================================================== */
+    public function cronSyncAll(Request $request): JsonResponse
+    {
+        if ($request->query('secret') !== config('app.order_sync_secret')) {
+            return response()->json(['status' => 'Unauthorized'], 401);
+        }
+
+        @set_time_limit(300);
+
+        // Window: 24 jam ke belakang sampai sekarang
+        $from = now()->subDay()->timestamp;
+        $to   = now()->timestamp;
+
+        // Ambil SEMUA akun aktif (scopeForUser() otomatis return all saat tidak ada Auth)
+        $accounts = AccountShopTiktok::where('status', 'active')
+            ->whereNotNull('shop_cipher')
+            ->whereNotNull('access_token')
+            ->get();
+
+        if ($accounts->isEmpty()) {
+            return response()->json([
+                'status' => 'skipped',
+                'reason' => 'Tidak ada akun aktif dengan shop_cipher.',
+            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }
+
+        $summary = [];
+
+        foreach ($accounts as $account) {
+            $accountResult = [
+                'account'    => $account->shop_name ?? $account->seller_name,
+                'synced'     => 0,
+                'pos_pushed' => 0,
+                'pos_skip'   => 0,
+                'pos_fail'   => 0,
+                'error'      => null,
+            ];
+
+            try {
+                // 1. Pastikan access token masih segar
+                $accessToken = $this->ensureFreshToken($account);
+
+                // 2. Filter: 24 jam ke belakang
+                $filters = [
+                    'create_time_ge' => $from,
+                    'create_time_lt' => $to,
+                ];
+
+                // 3. Paginate: searchOrders → getOrderDetail → saveOrder
+                $pageToken  = null;
+                $totalPages = 0;
+
+                do {
+                    $totalPages++;
+
+                    $result = $this->tiktokService->searchOrders(
+                        $accessToken,
+                        $account->shop_cipher,
+                        50,
+                        $pageToken,
+                        $filters
+                    );
+
+                    $orderList = $result['orders'] ?? [];
+                    $pageToken = $result['next_page_token'] ?? null;
+
+                    if (empty($orderList)) {
+                        break;
+                    }
+
+                    // Ambil detail lengkap untuk batch order ini
+                    $orderIds     = array_column($orderList, 'id');
+                    $detailResult = $this->tiktokService->getOrderDetail(
+                        $accessToken,
+                        $account->shop_cipher,
+                        $orderIds
+                    );
+
+                    foreach ($detailResult['orders'] ?? [] as $apiOrder) {
+                        $accountResult['synced'] += $this->saveOrder($account, $apiOrder);
+                    }
+
+                    if ($pageToken) {
+                        usleep(300000); // rate limiting 300ms antar halaman
+                    }
+                } while ($pageToken && $totalPages < 10);
+
+                // 4. Push order yg belum masuk POS (semua status kecuali UNPAID / CANCELLED)
+                $unsynced = Order::with(['items', 'account'])
+                    ->where('account_id', $account->id)
+                    ->where('is_synced_to_pos', false)
+                    ->whereNotIn('order_status', ['UNPAID', 'CANCELLED'])
+                    ->latest('tiktok_create_time')
+                    ->limit(100)
+                    ->get();
+
+                if ($unsynced->isNotEmpty()) {
+                    $posResult = $this->posService->pushBatchToPos($unsynced);
+                    $accountResult['pos_pushed'] = $posResult['success'];
+                    $accountResult['pos_skip']   = $posResult['skipped'];
+                    $accountResult['pos_fail']   = $posResult['failed'];
+                }
+
+                ActivityLog::record(
+                    'orders.cron_sync',
+                    "Cron sync {$accountResult['synced']} order dari {$account->shop_name} | POS: +{$accountResult['pos_pushed']}"
+                );
+            } catch (\Throwable $e) {
+                $accountResult['error'] = $e->getMessage();
+                Log::error('cronSyncAll: gagal untuk akun ' . $account->id, [
+                    'account' => $account->shop_name,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
+
+            $summary[] = $accountResult;
+
+            usleep(500000); // rate limiting 500ms antar akun
+        }
+
+        return response()->json([
+            'status'   => 'OK',
+            'window'   => [
+                'from' => date('Y-m-d H:i:s', $from),
+                'to'   => date('Y-m-d H:i:s', $to),
+            ],
+            'accounts' => $summary,
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
     /* ===================================================================

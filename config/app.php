@@ -132,4 +132,13 @@ return [
     */
     'stock_sync_secret' => env('STOCK_SYNC_SECRET', ''),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Order Sync Secret
+    |--------------------------------------------------------------------------
+    | Secret key untuk endpoint /orders/cron-sync-all agar tidak bisa dipanggil
+    | oleh sembarang orang. Set di .env: ORDER_SYNC_SECRET=xxx
+    */
+    'order_sync_secret' => env('ORDER_SYNC_SECRET', ''),
+
 ];

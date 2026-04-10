@@ -35,6 +35,10 @@ Route::prefix('stock')->name('stock.')->group(function () {
     Route::get('/run-queue',     [StockController::class, 'runQueue'])->name('run-queue');
 });
 
+Route::prefix('orders')->name('orders.')->group(function () {
+    Route::get('/cron-sync-all', [OrderController::class, 'cronSyncAll'])->name('cron-sync-all');
+});
+
 /* ═══════════════════════════════════════════════════════════════════════════
  | PROTECTED — Semua route di bawah wajib login & akun aktif
  ═══════════════════════════════════════════════════════════════════════════ */
