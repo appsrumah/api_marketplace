@@ -6,6 +6,7 @@ use App\Jobs\UpdateTiktokInventoryJob;
 use App\Models\AccountShopTiktok;
 use App\Models\ProdukSaya;
 use App\Services\PosStockService;
+use App\Services\ProductSyncService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,8 +14,9 @@ use Illuminate\Http\Request;
 class StockController extends Controller
 {
     public function __construct(
-        private PosStockService  $posStock,
-        private TiktokApiService $tiktokService,
+        private PosStockService   $posStock,
+        private TiktokApiService  $tiktokService,
+        private ProductSyncService $productSync,
     ) {}
 
     /* ================================================================
@@ -485,6 +487,12 @@ class StockController extends Controller
     /* ================================================================
      *  Cron via curl — Trigger sync-all dengan secret key
      *  GET /stock/cron-sync-all?secret=xxx
+     *
+     *  ALUR LENGKAP (setiap 5 menit):
+     *    STEP 1 — Sync produk  : fetch product list dari TikTok → update produk_saya
+     *             (agar data marketplace selalu fresh sebelum cek POS)
+     *    STEP 2 — Guard        : skip dispatch jika masih ada jobs pending
+     *    STEP 3 — Sync stok    : dispatch UpdateTiktokInventoryJob per SKU
      * ================================================================ */
     public function cronSyncAll(Request $request): JsonResponse
     {
@@ -492,7 +500,30 @@ class StockController extends Controller
             return response()->json(['status' => 'Unauthorized'], 401);
         }
 
-        // Guard: jika masih ada jobs pending di queue, skip dispatch
+        @set_time_limit(300);
+
+        // ── STEP 1: Sync daftar produk dari TikTok → produk_saya ─────────────
+        // Dilakukan SEBELUM dispatch inventory jobs agar produk_saya selalu fresh.
+        // Dengan ini, saat "Cek POS" dijalankan, stok marketplace & POS sudah sinkron.
+        $productSyncResult = [];
+
+        $accounts = AccountShopTiktok::where('status', 'active')
+            ->whereNotNull('shop_cipher')
+            ->whereNotNull('access_token')
+            ->get();
+
+        foreach ($accounts as $account) {
+            $r = $this->productSync->syncForAccount($account);
+            $productSyncResult[] = [
+                'account' => $account->shop_name ?? $account->seller_name,
+                'saved'   => $r['saved'],
+                'pages'   => $r['pages'],
+                'error'   => $r['error'],
+            ];
+            usleep(300_000); // 300ms rate limiting antar akun
+        }
+
+        // ── STEP 2: Guard — skip dispatch jika masih ada jobs pending ────────
         // Mencegah penumpukan jobs jika queue worker belum selesai memproses batch sebelumnya
         try {
             $pending = \Illuminate\Support\Facades\DB::table('jobs')
@@ -501,17 +532,25 @@ class StockController extends Controller
 
             if ($pending > 0) {
                 return response()->json([
-                    'status'       => 'skipped',
-                    'reason'       => 'Masih ada jobs pending di queue, dispatch dilewati.',
-                    'jobs_pending' => $pending,
-                    'tip'          => 'Tunggu queue worker selesai memproses semua jobs terlebih dahulu.',
+                    'status'          => 'products_synced_stock_skipped',
+                    'product_sync'    => $productSyncResult,
+                    'reason'          => 'Masih ada jobs pending di queue, dispatch stok dilewati.',
+                    'jobs_pending'    => $pending,
+                    'tip'             => 'Tunggu queue worker selesai memproses semua jobs terlebih dahulu.',
                 ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
         } catch (\Throwable $e) {
             // Tabel jobs belum ada — lanjut saja
         }
 
-        return $this->syncAll();
+        // ── STEP 3: Dispatch inventory update jobs ────────────────────────────
+        $stockResponse = $this->syncAll();
+        $stockData     = json_decode($stockResponse->getContent(), true) ?? [];
+
+        return response()->json(
+            array_merge(['product_sync' => $productSyncResult], $stockData),
+            200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
+        );
     }
 
     /* ================================================================

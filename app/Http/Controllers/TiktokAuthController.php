@@ -6,6 +6,7 @@ use App\Http\Controllers\IntegrationController;
 use App\Models\AccountShopTiktok;
 use App\Models\ProductDetail;
 use App\Models\ProdukSaya;
+use App\Services\ProductSyncService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ use Illuminate\Support\Facades\Log;
 class TiktokAuthController extends Controller
 {
     public function __construct(
-        private TiktokApiService $tiktokService
+        private TiktokApiService  $tiktokService,
+        private ProductSyncService $productSync,
     ) {}
 
     /* ---------- Redirect to TikTok OAuth ---------- */
@@ -93,21 +95,15 @@ class TiktokAuthController extends Controller
 
             // ======== STEP 4: Auto sync semua produk ========
             if ($account->shop_cipher) {
-                $result = $this->tiktokService->fetchAllProducts(
-                    $account->access_token,
-                    $account->shop_cipher
-                );
+                $syncResult = $this->productSync->syncForAccount($account);
+                $saved      = $syncResult['saved'];
 
-                $saved = $this->saveProducts($account->id, $result['products']);
-
-                $account->update(['last_sync_at' => now()]);
-
-                Log::info("✅ Produk tersimpan: {$saved}, halaman: {$result['total_pages']}, duplikat: {$result['total_skipped']}");
+                Log::info("✅ Produk tersimpan: {$saved}, halaman: {$syncResult['pages']}, duplikat: {$syncResult['skipped']}");
 
                 return redirect()->route('dashboard')->with(
                     'success',
                     "✅ Otorisasi berhasil! Akun \"{$account->seller_name}\" terhubung. " .
-                        "{$saved} produk disimpan dari {$result['total_pages']} halaman."
+                        "{$saved} produk disimpan dari {$syncResult['pages']} halaman."
                 );
             }
 
@@ -127,50 +123,20 @@ class TiktokAuthController extends Controller
     public function syncProducts(AccountShopTiktok $account)
     {
         try {
-            if ($account->isTokenExpired()) {
-                // Try refresh
-                $newTokenData = $this->tiktokService->refreshAccessToken($account->refresh_token);
-                $refreshNow = now();
-                $account->update([
-                    'access_token'            => $newTokenData['access_token'] ?? $account->access_token,
-                    'access_token_expire_in'  => isset($newTokenData['access_token_expire_in'])
-                        ? $refreshNow->copy()->addSeconds($newTokenData['access_token_expire_in'])
-                        : $account->access_token_expire_in,
-                    'refresh_token'           => $newTokenData['refresh_token'] ?? $account->refresh_token,
-                    'refresh_token_expire_in' => isset($newTokenData['refresh_token_expire_in'])
-                        ? $refreshNow->copy()->addSeconds($newTokenData['refresh_token_expire_in'])
-                        : $account->refresh_token_expire_in,
-                    'token_obtained_at'       => $refreshNow,
-                ]);
-                $account->refresh();
+            // Sync daftar produk via ProductSyncService (token refresh + fetchAllProducts + upsert)
+            $syncResult = $this->productSync->syncForAccount($account);
+
+            if ($syncResult['error']) {
+                return back()->with('error', 'Sync gagal: ' . $syncResult['error']);
             }
-
-            if (!$account->shop_cipher) {
-                $shops = $this->tiktokService->getAuthShop($account->access_token);
-                if (!empty($shops)) {
-                    $account->update(['shop_cipher' => $shops[0]['cipher'] ?? null]);
-                    $account->refresh();
-                }
-            }
-
-            if (!$account->shop_cipher) {
-                return back()->with('error', 'Shop cipher tidak ditemukan.');
-            }
-
-            $result = $this->tiktokService->fetchAllProducts(
-                $account->access_token,
-                $account->shop_cipher
-            );
-
-            $saved = $this->saveProducts($account->id, $result['products']);
 
             // ── Auto-fetch product details dari TikTok API ──────────
             $detailsFetched = $this->fetchProductDetails($account);
 
             return back()->with(
                 'success',
-                "Sync berhasil! {$saved} produk diperbarui/ditambahkan dari {$result['total_pages']} halaman. " .
-                    "Duplikat dilewati: {$result['total_skipped']}. " .
+                "Sync berhasil! {$syncResult['saved']} produk diperbarui/ditambahkan dari {$syncResult['pages']} halaman. " .
+                    "Duplikat dilewati: {$syncResult['skipped']}. " .
                     "Detail produk diambil: {$detailsFetched}."
             );
         } catch (\Exception $e) {
@@ -187,46 +153,6 @@ class TiktokAuthController extends Controller
 
         return redirect()->route('dashboard')
             ->with('success', "Akun \"{$name}\" berhasil dihapus.");
-    }
-
-    /* ---------- Save/update products to DB (upsert) ---------- */
-    private function saveProducts(int $accountId, array $products): int
-    {
-        $saved = 0;
-
-        // Use chunked upsert for efficiency
-        $chunks = array_chunk($products, 100);
-
-        foreach ($chunks as $chunk) {
-            $rows = array_map(function ($p) use ($accountId) {
-                return [
-                    'account_id'     => $accountId,
-                    'product_id'     => $p['product_id'],
-                    'sku_id'         => $p['sku_id'],
-                    'platform'       => $p['platform'],
-                    'title'          => $p['title'],
-                    'product_status' => $p['product_status'],
-                    'quantity'       => $p['quantity'],
-                    'price'          => $p['price'],
-                    'seller_sku'     => $p['seller_sku'],
-                    'status_info'    => $p['status_info'],
-                    'current_status' => $p['current_status'],
-                    'updated_at'     => now(),
-                    'created_at'     => now(),
-                ];
-            }, $chunk);
-
-            // Upsert: insert or update by unique key (account_id, sku_id, platform)
-            ProdukSaya::upsert(
-                $rows,
-                ['account_id', 'sku_id', 'platform'],
-                ['title', 'product_status', 'quantity', 'price', 'seller_sku', 'status_info', 'current_status', 'updated_at']
-            );
-
-            $saved += count($chunk);
-        }
-
-        return $saved;
     }
 
     /* ---------- Auto-fetch product details dari TikTok API ---------- */
