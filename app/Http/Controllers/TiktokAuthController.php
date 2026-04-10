@@ -8,6 +8,7 @@ use App\Models\ProductDetail;
 use App\Models\ProdukSaya;
 use App\Services\ProductSyncService;
 use App\Services\TiktokApiService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +24,21 @@ class TiktokAuthController extends Controller
     public function redirect()
     {
         return redirect()->away($this->tiktokService->getAuthUrl());
+    }
+
+    // =========================================================================
+    // HELPER — Konversi expire_in dari TikTok ke Carbon datetime
+    //
+    // TikTok mengirim Unix Timestamp LANGSUNG (bukan durasi detik):
+    //   access_token_expire_in  = 1776436019  → 15 Apr 2026 09:53 WIB
+    //   refresh_token_expire_in = 4878264833  → ~90 hari ke depan (tahun 2124)
+    //
+    // JANGAN pakai now()->addSeconds() — hasilnya akan tahun 58.000!
+    // =========================================================================
+    private function parseExpireTimestamp(?int $expireIn): ?Carbon
+    {
+        if (!$expireIn) return null;
+        return Carbon::createFromTimestamp($expireIn);
     }
 
     /* ---------- Callback — TikTok OAuth redirect handler ---------- */
@@ -77,9 +93,10 @@ class TiktokAuthController extends Controller
                     'seller_name'             => $sellerName,
                     'seller_base_region'      => $tokenData['seller_base_region'] ?? null,
                     'access_token'            => $tokenData['access_token'],
-                    'access_token_expire_in'  => $now->copy()->addSeconds($tokenData['access_token_expire_in'] ?? 0),
+                    // ✅ TikTok kirim Unix Timestamp langsung, bukan durasi detik
+                    'access_token_expire_in'  => $this->parseExpireTimestamp($tokenData['access_token_expire_in'] ?? null),
                     'refresh_token'           => $tokenData['refresh_token']            ?? '',
-                    'refresh_token_expire_in' => $now->copy()->addSeconds($tokenData['refresh_token_expire_in'] ?? 0),
+                    'refresh_token_expire_in' => $this->parseExpireTimestamp($tokenData['refresh_token_expire_in'] ?? null),
                     'shop_id'                 => $shopId,
                     'shop_name'               => $shopName,
                     'shop_cipher'             => $shopCipher,
@@ -188,8 +205,14 @@ class TiktokAuthController extends Controller
             if ($account->isTokenExpired()) {
                 $tokenData = $this->tiktokService->refreshAccessToken($account->refresh_token);
                 $account->update([
-                    'access_token'           => $tokenData['access_token'],
-                    'access_token_expire_in' => now()->addSeconds($tokenData['access_token_expire_in'] ?? 0),
+                    'access_token'            => $tokenData['access_token'],
+                    // ✅ FIX: Unix Timestamp bukan durasi detik
+                    'access_token_expire_in'  => $this->parseExpireTimestamp($tokenData['access_token_expire_in'] ?? null),
+                    'refresh_token'           => $tokenData['refresh_token'] ?? $account->refresh_token,
+                    'refresh_token_expire_in' => isset($tokenData['refresh_token_expire_in'])
+                        ? $this->parseExpireTimestamp($tokenData['refresh_token_expire_in'])
+                        : $account->refresh_token_expire_in,
+                    'token_obtained_at'       => now(),
                 ]);
                 $account->refresh();
                 $accessToken = $account->access_token;
@@ -253,6 +276,99 @@ class TiktokAuthController extends Controller
         return $fetched;
     }
 
+    // =========================================================================
+    // CRON — Refresh token H-1 sebelum expire
+    // Route: GET /tiktok/cron-refresh-token?secret=xxx
+    // =========================================================================
+    public function cronRefreshToken(Request $request): JsonResponse
+    {
+        if ($request->query('secret') !== config('app.stock_sync_secret')) {
+            return response()->json(['status' => 'Unauthorized'], 401);
+        }
+
+        @set_time_limit(300);
+
+        // Cari akun aktif yang tokennya akan expire <= 24 jam ke depan (H-1)
+        // Termasuk yang sudah expired agar bisa di-recover
+        $accounts = AccountShopTiktok::where('status', 'active')
+            ->whereNotNull('refresh_token')
+            ->where(function ($q) {
+                $q->whereNull('access_token_expire_in')
+                  ->orWhere('access_token_expire_in', '<=', now()->addDay());
+            })
+            ->get();
+
+        if ($accounts->isEmpty()) {
+            return response()->json([
+                'status'  => 'OK',
+                'message' => 'Tidak ada token yang perlu di-refresh.',
+            ], 200);
+        }
+
+        $refreshed = 0;
+        $failed    = 0;
+        $results   = [];
+
+        foreach ($accounts as $account) {
+            $row = [
+                'shop'       => $account->shop_name ?? $account->seller_name,
+                'old_expire' => $account->access_token_expire_in?->format('Y-m-d H:i:s'),
+                'status'     => null,
+                'new_expire' => null,
+                'error'      => null,
+            ];
+
+            try {
+                $tokenData = $this->tiktokService->refreshAccessToken($account->refresh_token);
+
+                if (empty($tokenData['access_token'])) {
+                    throw new \RuntimeException('Response refresh token kosong dari TikTok.');
+                }
+
+                $account->update([
+                    'access_token'            => $tokenData['access_token'],
+                    'access_token_expire_in'  => $this->parseExpireTimestamp($tokenData['access_token_expire_in'] ?? null),
+                    'refresh_token'           => $tokenData['refresh_token'] ?? $account->refresh_token,
+                    'refresh_token_expire_in' => isset($tokenData['refresh_token_expire_in'])
+                        ? $this->parseExpireTimestamp($tokenData['refresh_token_expire_in'])
+                        : $account->refresh_token_expire_in,
+                    'token_obtained_at'       => now(),
+                ]);
+
+                $account->refresh();
+                $row['status']     = 'refreshed';
+                $row['new_expire'] = $account->access_token_expire_in?->format('Y-m-d H:i:s');
+                $refreshed++;
+
+                Log::info('cronRefreshToken: token berhasil di-refresh', [
+                    'shop'       => $account->shop_name,
+                    'new_expire' => $row['new_expire'],
+                ]);
+            } catch (\Throwable $e) {
+                $row['status'] = 'failed';
+                $row['error']  = $e->getMessage();
+                $failed++;
+
+                Log::error('cronRefreshToken: gagal refresh token', [
+                    'account_id' => $account->id,
+                    'shop'       => $account->shop_name,
+                    'error'      => $e->getMessage(),
+                ]);
+            }
+
+            $results[] = $row;
+            usleep(300_000); // 300ms jeda antar request
+        }
+
+        return response()->json([
+            'status'    => 'OK',
+            'checked'   => count($results),
+            'refreshed' => $refreshed,
+            'failed'    => $failed,
+            'results'   => $results,
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+
     /**
      * Terima token dari callback.php (server oleh2indonesia.com)
      * Route: POST /tiktok/internal-callback
@@ -292,9 +408,9 @@ class TiktokAuthController extends Controller
                 'seller_name'             => $validated['seller_name']             ?? 'Unknown Seller',
                 'seller_base_region'      => $validated['seller_base_region']      ?? null,
                 'access_token'            => $validated['access_token'],
-                'access_token_expire_in'  => now()->addSeconds($validated['access_token_expire_in']),
+                'access_token_expire_in'  => $this->parseExpireTimestamp($validated['access_token_expire_in']),
                 'refresh_token'           => $validated['refresh_token'],
-                'refresh_token_expire_in' => now()->addSeconds($validated['refresh_token_expire_in']),
+                'refresh_token_expire_in' => $this->parseExpireTimestamp($validated['refresh_token_expire_in']),
                 'shop_id'                 => $shopInfo['shop_id']     ?? null,
                 'shop_name'               => $shopInfo['shop_name']   ?? null,
                 'shop_cipher'             => $shopInfo['shop_cipher'] ?? null,

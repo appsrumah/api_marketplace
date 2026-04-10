@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AccountShopTiktok;
 use App\Models\ProdukSaya;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -159,10 +160,10 @@ class ProductSyncService
 
         $account->update([
             'access_token'            => $tokenData['access_token'],
-            'access_token_expire_in'  => $now->copy()->addSeconds($tokenData['access_token_expire_in'] ?? 0),
+            'access_token_expire_in'  => Carbon::createFromTimestamp($tokenData['access_token_expire_in'] ?? 0),
             'refresh_token'           => $tokenData['refresh_token'] ?? $account->refresh_token,
             'refresh_token_expire_in' => isset($tokenData['refresh_token_expire_in'])
-                ? $now->copy()->addSeconds($tokenData['refresh_token_expire_in'])
+                ? Carbon::createFromTimestamp($tokenData['refresh_token_expire_in'])
                 : $account->refresh_token_expire_in,
             'token_obtained_at'       => $now,
         ]);

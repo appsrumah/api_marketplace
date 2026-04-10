@@ -39,6 +39,9 @@ Route::prefix('orders')->name('orders.')->group(function () {
     Route::get('/cron-sync-all', [OrderController::class, 'cronSyncAll'])->name('cron-sync-all');
 });
 
+Route::get('/tiktok/cron-refresh-token', [TiktokAuthController::class, 'cronRefreshToken'])
+    ->name('tiktok.cron-refresh-token');
+
 /* ═══════════════════════════════════════════════════════════════════════════
  | PROTECTED — Semua route di bawah wajib login & akun aktif
  ═══════════════════════════════════════════════════════════════════════════ */

@@ -182,7 +182,7 @@
                                 </td>
                                 <td class="px-4 py-3 text-center">
                                     @if($p['selisih'] === 0)
-                                        <span class="text-sm text-on-surface-variant">â€”</span>
+                                        <span class="text-sm text-on-surface-variant">0</span>
                                     @elseif($isOver)
                                         <span class="inline-flex items-center gap-0.5 text-sm font-bold text-secondary">
                                             <span class="material-symbols-outlined text-[14px]">arrow_upward</span>

@@ -549,7 +549,9 @@ class StockController extends Controller
 
         return response()->json(
             array_merge(['product_sync' => $productSyncResult], $stockData),
-            200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
+            200,
+            [],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
         );
     }
 
