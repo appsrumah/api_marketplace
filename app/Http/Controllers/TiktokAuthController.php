@@ -294,7 +294,7 @@ class TiktokAuthController extends Controller
             ->whereNotNull('refresh_token')
             ->where(function ($q) {
                 $q->whereNull('access_token_expire_in')
-                  ->orWhere('access_token_expire_in', '<=', now()->addDay());
+                    ->orWhere('access_token_expire_in', '<=', now()->addDay());
             })
             ->get();
 

@@ -14,7 +14,7 @@
     <a href="{{ route('integrations.index') }}"
        class="inline-flex items-center gap-2 rounded-xl primary-gradient px-5 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90 active:scale-[0.98]">
         <span class="material-symbols-outlined text-[18px]">add</span>
-        Tambah Akun TikTok
+        Tambah Akun Marketplace
     </a>
 </div>
 
@@ -150,7 +150,7 @@
 {{-- ACCOUNT LIST  --}}
 <div class="mt-10">
     <h2 class="font-headline text-lg font-bold text-on-surface">Akun Terhubung</h2>
-    <p class="mt-1 text-sm text-on-surface-variant">Daftar akun TikTok Shop yang sudah ditautkan.</p>
+    <p class="mt-1 text-sm text-on-surface-variant">Daftar akun Marketplace yang sudah ditautkan.</p>
 
     @if($accounts->isEmpty())
         <div class="mt-6 flex flex-col items-center rounded-2xl border-2 border-dashed border-outline-variant/50 bg-surface-container-lowest p-12 text-center">
@@ -158,7 +158,7 @@
                 <span class="material-symbols-outlined text-[32px] text-primary">person_add</span>
             </div>
             <h3 class="mt-4 font-headline text-base font-bold text-on-surface">Belum ada akun</h3>
-            <p class="mt-1 text-sm text-on-surface-variant">Hubungkan akun TikTok Shop Anda untuk memulai.</p>
+            <p class="mt-1 text-sm text-on-surface-variant">Hubungkan akun Marketplace Anda untuk memulai.</p>
             <a href="{{ route('integrations.index') }}"
                class="mt-5 inline-flex items-center gap-2 rounded-xl primary-gradient px-5 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90">
                 <span class="material-symbols-outlined text-[18px]">add</span>

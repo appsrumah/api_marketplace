@@ -122,7 +122,7 @@
         <a href="{{ route('integrations.index') }}"
            class="flex w-full items-center justify-center gap-2 rounded-xl primary-gradient px-4 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90 active:scale-[0.98]">
             <span class="material-symbols-outlined text-[18px]">add</span>
-            Tambah Akun
+            Tambah Akun Marketplace
         </a>
     </div>
 </aside>
