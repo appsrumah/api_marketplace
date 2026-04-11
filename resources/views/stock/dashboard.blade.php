@@ -1,9 +1,9 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Sinkronisasi Stok')
 @section('breadcrumb', 'Stok â€” Sinkronisasi Otomatis')
 
 @section('content')
-<div x-data="stockSync()" x-cloak>
+<div x-data="stockSync()" x-init="init()" @destroy="destroy()" x-cloak>
 
     {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          HEADER
@@ -103,6 +103,114 @@
         </div>
     </div>
 
+
+    {{-- ═══════════════════════════════════════════════════════════════
+         LIVE MONITOR — Progress sync stok real-time (polling 5 detik)
+    ═══════════════════════════════════════════════════════════════ --}}
+    <div class="mt-6 overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
+        {{-- Header --}}
+        <div class="flex items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container-low px-5 py-3">
+            <div class="flex items-center gap-2">
+                <span class="relative flex h-2.5 w-2.5">
+                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                          :class="liveStatus && liveStatus.queue.total > 0 ? 'bg-primary' : 'bg-secondary'"></span>
+                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full"
+                          :class="liveStatus && liveStatus.queue.total > 0 ? 'bg-primary' : 'bg-secondary'"></span>
+                </span>
+                <h3 class="text-sm font-bold text-on-surface">Live Monitor Sync Stok</h3>
+                <span class="rounded-full bg-surface-container px-2 py-0.5 text-[10px] text-on-surface-variant">Auto-refresh 5 detik</span>
+            </div>
+            <span class="text-[10px] text-on-surface-variant/60"
+                  x-text="liveStatus ? 'Dicek: ' + new Date(liveStatus.checked_at).toLocaleTimeString('id-ID') : 'Memuat...'"></span>
+        </div>
+        {{-- Queue summary --}}
+        <div class="grid grid-cols-3 divide-x divide-outline-variant/20 border-b border-outline-variant/20">
+            <div class="px-5 py-3 text-center">
+                <p class="text-xs font-medium text-on-surface-variant">Antri (pending)</p>
+                <p class="mt-0.5 text-xl font-bold"
+                   :class="liveStatus && liveStatus.queue.pending > 0 ? 'text-secondary' : 'text-on-surface-variant/40'"
+                   x-text="liveStatus ? liveStatus.queue.pending : '—'"></p>
+            </div>
+            <div class="px-5 py-3 text-center">
+                <p class="text-xs font-medium text-on-surface-variant">Sedang jalan</p>
+                <p class="mt-0.5 text-xl font-bold"
+                   :class="liveStatus && liveStatus.queue.reserved > 0 ? 'text-primary' : 'text-on-surface-variant/40'"
+                   x-text="liveStatus ? liveStatus.queue.reserved : '—'"></p>
+            </div>
+            <div class="px-5 py-3 text-center">
+                <p class="text-xs font-medium text-on-surface-variant">Total aktif</p>
+                <p class="mt-0.5 text-xl font-bold"
+                   :class="liveStatus && liveStatus.queue.total > 0 ? 'text-primary' : 'text-on-surface-variant/40'"
+                   x-text="liveStatus ? liveStatus.queue.total : '—'"></p>
+            </div>
+        </div>
+        {{-- Per-akun progress rows --}}
+        <div x-show="liveStatus && liveStatus.accounts.length" class="divide-y divide-outline-variant/10">
+            <template x-for="acc in (liveStatus ? liveStatus.accounts : [])" :key="acc.account_id">
+                <div class="flex items-center gap-4 px-5 py-3">
+                    <div class="primary-gradient flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm"
+                         x-text="acc.account_name.charAt(0).toUpperCase()"></div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="truncate text-sm font-semibold text-on-surface" x-text="acc.account_name"></p>
+                            <span class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                                  :class="{
+                                      'bg-primary/10 text-primary': acc.progress && acc.progress.status === 'running',
+                                      'bg-secondary-container text-on-secondary-container': acc.progress && acc.progress.status === 'completed',
+                                      'bg-error-container text-on-error-container': acc.progress && acc.progress.status === 'failed',
+                                      'bg-tertiary-fixed text-on-tertiary-fixed-variant': acc.progress && acc.progress.status === 'starting',
+                                      'bg-surface-container text-on-surface-variant': !acc.progress || acc.progress.status === 'skipped',
+                                  }"
+                                  x-text="acc.progress ? ({'running':'▶ Sedang jalan','starting':'⏳ Memulai...','completed':'✅ Selesai','failed':'❌ Gagal','skipped':'⚠ Outlet kosong'}[acc.progress.status] || acc.progress.status) : 'Idle'">
+                            </span>
+                        </div>
+                        {{-- Progress bar --}}
+                        <template x-if="acc.progress && (acc.progress.status === 'running' || acc.progress.status === 'starting')">
+                            <div class="mt-1.5">
+                                <div class="flex items-center justify-between text-[10px] text-on-surface-variant">
+                                    <span x-text="acc.progress.current + ' / ' + acc.progress.total + ' SKU'"></span>
+                                    <span x-text="acc.progress.total > 0 ? Math.round(acc.progress.current / acc.progress.total * 100) + '%' : '0%'"></span>
+                                </div>
+                                <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-container">
+                                    <div class="h-full rounded-full bg-primary transition-all duration-500"
+                                         :style="'width:' + (acc.progress.total > 0 ? Math.round(acc.progress.current / acc.progress.total * 100) : 0) + '%'"></div>
+                                </div>
+                                <p class="mt-0.5 text-[10px] text-on-surface-variant/70"
+                                   x-text="'✓ ' + acc.progress.success + ' berhasil · ✗ ' + acc.progress.failed + ' gagal'"></p>
+                            </div>
+                        </template>
+                        {{-- Selesai --}}
+                        <p x-show="acc.progress && acc.progress.status === 'completed'"
+                           class="mt-0.5 text-[10px] text-on-surface-variant"
+                           x-text="acc.progress ? '✓ ' + acc.progress.success + ' berhasil · ✗ ' + acc.progress.failed + ' gagal dari ' + acc.progress.total + ' SKU · selesai ' + new Date(acc.progress.finished_at).toLocaleTimeString('id-ID') : ''"></p>
+                        {{-- Error --}}
+                        <p x-show="acc.progress && acc.progress.status === 'failed'"
+                           class="mt-0.5 truncate text-[10px] text-error" x-text="acc.progress ? acc.progress.error : ''"></p>
+                        {{-- Idle --}}
+                        <p x-show="!acc.progress || !['running','starting','completed','failed'].includes(acc.progress ? acc.progress.status : '')"
+                           class="mt-0.5 text-[10px] text-on-surface-variant/60"
+                           x-text="acc.last_update_human ? 'Terakhir sync: ' + acc.last_update_human : 'Belum pernah sync'"></p>
+                    </div>
+                    {{-- Tombol Sync 1 akun --}}
+                    <button @click="doSyncAccount(acc.account_id, acc.account_name)"
+                            :disabled="loading || (acc.progress && acc.progress.status === 'running')"
+                            class="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface transition hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-50">
+                        <span class="material-symbols-outlined text-[14px]"
+                              :class="loadingAction === 'sync-account-' + acc.account_id || (acc.progress && acc.progress.status === 'running') ? 'animate-spin' : ''">sync</span>
+                        <span x-text="acc.progress && acc.progress.status === 'running' ? 'Jalan...' : 'Sync'"></span>
+                    </button>
+                </div>
+            </template>
+        </div>
+        {{-- Loading skeleton --}}
+        <div x-show="!liveStatus" class="px-5 py-6 text-center text-sm text-on-surface-variant">
+            <svg class="mx-auto mb-2 h-5 w-5 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            Memuat status...
+        </div>
+    </div>
     {{-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
          OUTPUT PANEL (muncul setelah klik tombol)
     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• --}}
@@ -485,6 +593,26 @@ function stockSync() {
         result: null,
         error: null,
         jobsRemaining: null,
+        liveStatus: null,
+        _pollTimer: null,
+
+        init() {
+            this.fetchLiveStatus();
+            this._pollTimer = setInterval(() => this.fetchLiveStatus(), 5000);
+        },
+
+        destroy() {
+            if (this._pollTimer) clearInterval(this._pollTimer);
+        },
+
+        async fetchLiveStatus() {
+            try {
+                const res = await fetch('{{ route("stock.sync-progress") }}', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                this.liveStatus = await res.json();
+            } catch (e) { /* silent — jangan ganggu UI jika network error */ }
+        },
 
         async doSyncAll() {
             await this.call('sync-all', 'Dispatch semua jobs', () =>

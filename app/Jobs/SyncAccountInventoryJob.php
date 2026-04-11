@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -45,7 +46,8 @@ class SyncAccountInventoryJob implements ShouldQueue
 
     public function handle(TiktokApiService $tiktokService, PosStockService $posStock): void
     {
-        $account = AccountShopTiktok::findOrFail($this->accountId);
+        $account  = AccountShopTiktok::findOrFail($this->accountId);
+        $cacheKey = "stock_sync_progress_{$this->accountId}";
 
         Log::info("▶ SyncAccountInventoryJob mulai [{$account->seller_name}]", [
             'account_id' => $this->accountId,
@@ -54,16 +56,34 @@ class SyncAccountInventoryJob implements ShouldQueue
         // ── 1. Guard: id_outlet harus ada ────────────────────────────────
         if (!$account->id_outlet) {
             Log::warning("SyncAccountInventoryJob: id_outlet kosong [{$account->seller_name}], skip.");
+            Cache::put($cacheKey, [
+                'status'       => 'skipped',
+                'account_name' => $account->seller_name,
+                'reason'       => 'id_outlet belum di-set',
+                'updated_at'   => now()->toIso8601String(),
+            ], 86400);
             $this->delete();
             return;
         }
 
-        // ── 2. Auto-refresh token jika expired ───────────────────────────
+        // ── 2. Catat status "mulai" ke Cache ─────────────────────────────
+        Cache::put($cacheKey, [
+            'status'       => 'starting',
+            'account_name' => $account->seller_name,
+            'total'        => 0,
+            'current'      => 0,
+            'success'      => 0,
+            'failed'       => 0,
+            'started_at'   => now()->toIso8601String(),
+            'updated_at'   => now()->toIso8601String(),
+        ], 3600);
+
+        // ── 3. Auto-refresh token jika expired ───────────────────────────
         if ($account->isTokenExpired()) {
             $this->doRefreshToken($account, $tiktokService);
         }
 
-        // ── 3. Ambil semua produk aktif dari produk_saya (lokal DB) ──────
+        // ── 4. Ambil semua produk aktif dari produk_saya (lokal DB) ──────
         // Tidak perlu tarik ulang dari TikTok API — data sudah ada di produk_saya.
         // Produk sync cukup dijalankan 1x/hari secara terpisah.
         $products = ProdukSaya::where('account_id', $this->accountId)
@@ -77,25 +97,46 @@ class SyncAccountInventoryJob implements ShouldQueue
 
         if ($products->isEmpty()) {
             Log::info("SyncAccountInventoryJob: tidak ada produk aktif [{$account->seller_name}], selesai.");
+            Cache::put($cacheKey, [
+                'status'       => 'completed',
+                'account_name' => $account->seller_name,
+                'total'        => 0,
+                'current'      => 0,
+                'success'      => 0,
+                'failed'       => 0,
+                'reason'       => 'Tidak ada produk ACTIVATE dengan seller_sku',
+                'started_at'   => Cache::get($cacheKey)['started_at'] ?? now()->toIso8601String(),
+                'finished_at'  => now()->toIso8601String(),
+                'updated_at'   => now()->toIso8601String(),
+            ], 86400);
             return;
         }
 
-        // ── 4. Ambil SEMUA stok dari POS dalam SATU query ────────────────
-        // Sebelumnya: 1 query per SKU = 10.000 queries
-        // Sekarang  : 1 query semua SKU = 1 query saja ✅
+        // ── 5. Ambil SEMUA stok dari POS dalam SATU query ────────────────
         $skus     = $products->pluck('seller_sku')->unique()->values()->all();
         $stockMap = $posStock->getStockBulk($skus, $account->id_outlet);
 
+        $total = $products->count();
         Log::info("SyncAccountInventoryJob: stok diambil bulk dari POS", [
-            'akun'   => $account->seller_name,
+            'akun'      => $account->seller_name,
             'sku_count' => count($skus),
         ]);
 
-        // ── 5. Push stok ke TikTok API satu per satu ────────────────────
+        // Update Cache: total produk diketahui
+        Cache::put($cacheKey, array_merge(Cache::get($cacheKey, []), [
+            'status'     => 'running',
+            'total'      => $total,
+            'updated_at' => now()->toIso8601String(),
+        ]), 3600);
+
+        // ── 6. Push stok ke TikTok API satu per satu ─────────────────────
         $success = 0;
         $failed  = 0;
+        $i       = 0;
+        $startedAt = Cache::get($cacheKey)['started_at'] ?? now()->toIso8601String();
 
         foreach ($products as $product) {
+            $i++;
             $qty = $stockMap[$product->seller_sku] ?? 0;
 
             try {
@@ -120,13 +161,40 @@ class SyncAccountInventoryJob implements ShouldQueue
                 }
             }
 
+            // Update Cache setiap 20 SKU agar dashboard bisa menampilkan progress
+            if ($i % 20 === 0 || $i === $total) {
+                Cache::put($cacheKey, [
+                    'status'       => 'running',
+                    'account_name' => $account->seller_name,
+                    'total'        => $total,
+                    'current'      => $i,
+                    'success'      => $success,
+                    'failed'       => $failed,
+                    'started_at'   => $startedAt,
+                    'updated_at'   => now()->toIso8601String(),
+                ], 3600);
+            }
+
             usleep(100_000); // 100ms jeda antar SKU — hindari rate limit TikTok
         }
 
         $account->update(['last_update_stock' => now()]);
 
+        // Tulis hasil akhir ke Cache (disimpan 24 jam agar bisa dilihat setelah selesai)
+        Cache::put($cacheKey, [
+            'status'       => 'completed',
+            'account_name' => $account->seller_name,
+            'total'        => $total,
+            'current'      => $total,
+            'success'      => $success,
+            'failed'       => $failed,
+            'started_at'   => $startedAt,
+            'finished_at'  => now()->toIso8601String(),
+            'updated_at'   => now()->toIso8601String(),
+        ], 86400);
+
         Log::info("✅ SyncAccountInventoryJob selesai [{$account->seller_name}]", [
-            'total'   => $products->count(),
+            'total'   => $total,
             'success' => $success,
             'failed'  => $failed,
         ]);
@@ -162,5 +230,15 @@ class SyncAccountInventoryJob implements ShouldQueue
         Log::error("❌ SyncAccountInventoryJob GAGAL TOTAL [account_id: {$this->accountId}]", [
             'error' => $e->getMessage(),
         ]);
+
+        // Tulis status gagal ke Cache agar dashboard menampilkan error
+        $cacheKey = "stock_sync_progress_{$this->accountId}";
+        $prev     = Cache::get($cacheKey, []);
+        Cache::put($cacheKey, array_merge($prev, [
+            'status'    => 'failed',
+            'error'     => $e->getMessage(),
+            'failed_at' => now()->toIso8601String(),
+            'updated_at' => now()->toIso8601String(),
+        ]), 86400);
     }
 }

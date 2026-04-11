@@ -10,6 +10,8 @@ use App\Services\ProductSyncService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
@@ -436,7 +438,7 @@ class StockController extends Controller
             )->onQueue('tiktok-inventory');
 
             return response()->json([
-                'status'  => 'Batch job dispatched',
+                'status'  => 'Jobs dispatched',
                 'account' => $account->seller_name,
                 'queued'  => 1,
                 'info'    => '1 batch job masuk ke antrian. Job memproses semua SKU akun ini sekaligus (getStockBulk + push per SKU).',
@@ -570,6 +572,48 @@ class StockController extends Controller
                 'file'   => basename($e->getFile()) . ':' . $e->getLine(),
             ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }
+    }
+
+    /* ================================================================
+     *  Live Monitor — Status sync stok real-time via polling
+     *  GET /stock/sync-progress
+     *  Dipanggil dashboard setiap 5 detik via fetch()
+     * ================================================================ */
+    public function syncProgress(): JsonResponse
+    {
+        $accounts = AccountShopTiktok::forUser()->get();
+
+        // Queue stats: pending = belum diambil worker, reserved = sedang berjalan
+        $pending  = 0;
+        $reserved = 0;
+        try {
+            $pending  = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNull('reserved_at')->count();
+            $reserved = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNotNull('reserved_at')->count();
+        } catch (\Throwable $e) { /* tabel jobs belum ada */
+        }
+
+        $accountProgress = $accounts->map(function ($account) {
+            $progress = Cache::get("stock_sync_progress_{$account->id}");
+
+            return [
+                'account_id'        => $account->id,
+                'account_name'      => $account->seller_name,
+                'id_outlet'         => $account->id_outlet,
+                'last_update_stock' => $account->last_update_stock?->toIso8601String(),
+                'last_update_human' => $account->last_update_stock?->diffForHumans(),
+                'progress'          => $progress, // null jika belum pernah jalan
+            ];
+        });
+
+        return response()->json([
+            'queue' => [
+                'pending'  => $pending,
+                'reserved' => $reserved,
+                'total'    => $pending + $reserved,
+            ],
+            'accounts'   => $accountProgress,
+            'checked_at' => now()->toIso8601String(),
+        ]);
     }
 
     /* ================================================================

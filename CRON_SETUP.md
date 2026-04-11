@@ -24,10 +24,17 @@
 Worker yang memproses `SyncAccountInventoryJob` dari antrian.
 
 ```bash
-* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=tiktok-inventory --sleep=3 --tries=2 --max-time=55 >> /dev/null 2>&1
+* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=tiktok-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
 ```
 
-> **Kenapa `--max-time=55`?** cPanel cron minimum interval 1 menit. Worker berjalan 55 detik, berhenti, lalu cron berikutnya memulai worker baru. Ini mencegah overlap.
+> **`--max-jobs=1`** → setiap cron spawn 1 worker PHP, ambil tepat 1 job, lalu proses selesai.  
+> Cocok untuk `SyncAccountInventoryJob` yang bisa jalan 5–15 menit:  
+> - Menit ke-0: worker 1 → job akun A (~10 menit)  
+> - Menit ke-1: worker 2 → job akun B (~10 menit)  
+> - Menit ke-2: worker 3 → job akun C (~10 menit)  
+> - Menit ke-3+: worker baru start, queue kosong (guard skip), langsung stop ✅  
+>
+> **Jangan pakai `--max-time=55`** untuk job ini — job `SyncAccountInventoryJob` butuh waktu lebih dari 55 detik untuk ribuan SKU. `--max-time` tidak kill job yang sedang berjalan, tapi lebih aman dihindari agar tidak ada asumsi keliru.
 
 ---
 
@@ -65,7 +72,7 @@ Refresh access token sebelum expired.
 ## 📋 Ringkasan Semua Cron (Copy-Paste ke cPanel)
 
 ```
-* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=tiktok-inventory --sleep=3 --tries=2 --max-time=55 >> /dev/null 2>&1
+* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=tiktok-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
 */15 * * * * curl -s "https://app.oleh2indonesia.com/stock/cron-sync-all?secret=kiosq_stock_sync_2026" > /dev/null 2>&1
 0 3 * * * curl -s "https://app.oleh2indonesia.com/stock/cron-sync-all?secret=kiosq_stock_sync_2026&sync_products=1" > /dev/null 2>&1
 0 * * * * curl -s "https://app.oleh2indonesia.com/tiktok/cron-refresh-token?secret=kiosq_stock_sync_2026" > /dev/null 2>&1
