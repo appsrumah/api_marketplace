@@ -328,42 +328,53 @@ class StockController extends Controller
     /* ================================================================
      *  Jalankan queue worker dari web UI (CSRF protected, tanpa secret)
      *  POST /stock/run-queue-web
+     *
+     *  ⚠ TIDAK menggunakan Artisan::call() — terlalu lambat, mati di HTTP timeout.
+     *  Fungsi ini HANYA melepas "stuck jobs" (reserved > 5 menit) agar cron
+     *  worker bisa memprosesnya ulang. Pemrosesan actual tetap oleh cron.
      * ================================================================ */
     public function runQueueWeb(Request $request): JsonResponse
     {
-        @set_time_limit(120);
-
+        // Lepas stuck jobs: job sudah reserved > 5 menit tapi proses worker-nya mati
+        // (misal: web HTTP timeout, server kill, dsb.)
+        $released = 0;
         try {
-            $exitCode = \Illuminate\Support\Facades\Artisan::call('queue:work', [
-                '--queue'           => 'tiktok-inventory',
-                '--stop-when-empty' => true,
-                '--max-time'        => 25,
-                '--tries'           => 3,
-            ]);
-
-            $output = \Illuminate\Support\Facades\Artisan::output();
-
-            $remaining = 0;
-            try {
-                $remaining = \Illuminate\Support\Facades\DB::table('jobs')
-                    ->where('queue', 'tiktok-inventory')
-                    ->count();
-            } catch (\Throwable $e) {
-            }
-
-            return response()->json([
-                'status'         => 'selesai',
-                'exit_code'      => $exitCode,
-                'output'         => trim($output) ?: '(tidak ada output — queue mungkin sudah kosong)',
-                'jobs_remaining' => $remaining,
-            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            $released = DB::table('jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->whereNotNull('reserved_at')
+                ->where('reserved_at', '<', now()->subMinutes(5)->timestamp)
+                ->update(['reserved_at' => null]);
         } catch (\Throwable $e) {
-            return response()->json([
-                'status' => 'ERROR',
-                'pesan'  => $e->getMessage(),
-                'file'   => basename($e->getFile()) . ':' . $e->getLine(),
-            ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            // tabel jobs belum ada
         }
+
+        // Hitung status antrian saat ini
+        $available = $delayed = $reserved = 0;
+        try {
+            $now       = now()->timestamp;
+            $available = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNull('reserved_at')->where('available_at', '<=', $now)->count();
+            $delayed   = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNull('reserved_at')->where('available_at', '>', $now)->count();
+            $reserved  = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNotNull('reserved_at')->count();
+        } catch (\Throwable $e) {
+        }
+
+        $total = $available + $delayed + $reserved;
+
+        $info = $released > 0
+            ? "{$released} job stuck berhasil dilepas. Cron worker akan memprosesnya dalam ~1 menit."
+            : ($total > 0
+                ? "Antrian: {$available} siap · {$reserved} sedang jalan · {$delayed} menunggu retry. Cron worker memproses otomatis."
+                : 'Antrian kosong. Klik "Sync Semua Akun" untuk mulai sync stok.');
+
+        return response()->json([
+            'status'         => 'selesai',
+            'released'       => $released,
+            'available'      => $available,
+            'delayed'        => $delayed,
+            'running'        => $reserved,
+            'jobs_remaining' => $total,
+            'info'           => $info,
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
     /* ================================================================

@@ -25,11 +25,11 @@
                 <span x-text="loadingAction === 'sync-all' ? 'Memproses...' : 'Sync Semua Akun'"></span>
             </button>
 
-            {{-- Proses Queue --}}
+            {{-- Lepas Stuck Jobs --}}
             <button @click="doRunQueue()" :disabled="loading"
                     class="primary-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-primary-glow transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]">
-                <span class="material-symbols-outlined text-[18px]" :class="loadingAction === 'run-queue' ? 'animate-spin' : ''">bolt</span>
-                <span x-text="loadingAction === 'run-queue' ? 'Memproses...' : 'Proses Queue'"></span>
+                <span class="material-symbols-outlined text-[18px]" :class="loadingAction === 'run-queue' ? 'animate-spin' : ''">restart_alt</span>
+                <span x-text="loadingAction === 'run-queue' ? 'Memeriksa...' : 'Lepas & Retry'"></span>
             </button>
 
             {{-- Reload --}}
@@ -278,7 +278,7 @@
                     <p class="font-bold text-on-surface">
                         âœ… <span x-text="result.queued"></span> Jobs berhasil masuk ke antrian!
                     </p>
-                    <p class="mt-1 text-sm text-on-surface-variant">Klik <strong class="text-primary">Proses Queue</strong> untuk mulai push stok ke TikTok/Tokopedia.</p>
+                    <p class="mt-1 text-sm text-on-surface-variant">Jobs masuk ke antrian. Cron worker akan memproses otomatis dalam ~1 menit. Pantau progress di <strong class="text-primary">Live Monitor</strong>.</p>
                     <div class="mt-3 flex flex-wrap gap-2" x-show="result.detail && result.detail.length">
                         <template x-for="d in result.detail" :key="d.account">
                             <span class="inline-flex items-center gap-1.5 rounded-lg bg-secondary-container px-3 py-1.5 text-xs font-semibold text-on-secondary-container">
@@ -294,39 +294,41 @@
             </div>
         </div>
 
-        {{-- Result: Run Queue success --}}
+                {{-- Result: Lepas & Retry (runQueueWeb) --}}
         <div x-show="result && !loading && result.status === 'selesai'" class="p-6">
             <div class="flex items-start gap-4 rounded-xl bg-primary-fixed/60 p-4">
                 <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white">
-                    <span class="material-symbols-outlined text-[16px]">bolt</span>
+                    <span class="material-symbols-outlined text-[16px]" x-text="result && result.released > 0 ? 'restart_alt' : 'info'"></span>
                 </div>
                 <div class="flex-1">
-                    <p class="font-bold text-on-surface">âš¡ Queue worker selesai berjalan</p>
-                    <div class="mt-2 flex flex-wrap gap-3">
+                    <p class="font-bold text-on-surface" x-text="result && result.released > 0 ? 'Job stuck berhasil dilepas!' : 'Status Antrian'"></p>
+                    <p class="mt-1 text-sm text-on-surface-variant" x-text="result ? result.info : ''"></p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span class="inline-flex items-center gap-1 rounded-lg bg-secondary-container px-3 py-1.5 text-xs font-semibold text-on-secondary-container">
+                            Siap: <span x-text="result ? result.available : 0" class="ml-1 font-bold"></span>
+                        </span>
                         <span class="inline-flex items-center gap-1 rounded-lg bg-primary-fixed px-3 py-1.5 text-xs font-semibold text-primary">
-                            Exit code: <span x-text="result.exit_code" class="ml-1"></span>
-                        </span>
-                        <span class="inline-flex items-center gap-1 rounded-lg bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface">
-                            Sisa queue: <span x-text="result.jobs_remaining" class="ml-1 font-bold text-primary"></span> jobs
+                            Sedang jalan: <span x-text="result ? result.running : 0" class="ml-1 font-bold"></span>
                         </span>
                     </div>
-                    <div x-show="result.output && result.output !== '(tidak ada output)'" class="mt-3">
-                        <p class="mb-1 text-xs font-semibold text-on-surface-variant">Output:</p>
-                        <pre class="overflow-x-auto rounded-xl bg-on-surface p-3 text-xs leading-relaxed text-surface" x-text="result.output"></pre>
+                    <div x-show="result && result.released > 0" class="mt-3 rounded-xl bg-secondary-container/30 p-3">
+                        <p class="text-xs text-on-secondary-container">Pantau progress di <strong>Live Monitor</strong>. Cron worker akan memproses dalam ~1 menit.</p>
                     </div>
-                    <div x-show="result.jobs_remaining > 0" class="mt-3 rounded-xl bg-tertiary-fixed p-3">
-                        <p class="text-xs text-on-tertiary-fixed-variant">
-                            âš  Masih ada <strong x-text="result.jobs_remaining"></strong> jobs tersisa. Klik <strong>Proses Queue</strong> lagi,
-                            atau biarkan cron yang memproses secara otomatis.
-                        </p>
-                    </div>
-                    <div x-show="result.jobs_remaining === 0" class="mt-3 rounded-xl bg-secondary-container/30 p-3">
-                        <p class="text-xs text-on-secondary-container">âœ… Semua jobs selesai diproses! Stok sudah di-update ke TikTok/Tokopedia.</p>
+                    <div x-show="result && result.jobs_remaining === 0" class="mt-3 rounded-xl bg-surface-container p-3">
+                        <p class="text-xs text-on-surface-variant">Antrian kosong. Klik <strong class="text-secondary">Sync Semua Akun</strong> untuk mulai sync stok.</p>
                     </div>
                 </div>
             </div>
         </div>
 
+di atas. Cron worker akan memproses dalam ~1 menit.</p>
+                    </div>
+                    <div x-show="result && result.jobs_remaining === 0" class="mt-3 rounded-xl bg-surface-container p-3">
+                        <p class="text-xs text-on-surface-variant">Antrian kosong. Klik <strong class="text-secondary">Sync Semua Akun</strong> untuk mulai sync stok.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
         {{-- Result: Sync Account success --}}
         <div x-show="result && !loading && result.account && result.status === 'Jobs dispatched'" class="p-6">
             <div class="flex items-start gap-4 rounded-xl bg-secondary-container/30 p-4">
@@ -337,7 +339,7 @@
                     <p class="font-bold text-on-surface">
                         âœ… <span x-text="result.queued"></span> jobs untuk akun <em x-text="result.account"></em>
                     </p>
-                    <p class="mt-1 text-sm text-on-surface-variant">Klik <strong class="text-primary">Proses Queue</strong> untuk push ke TikTok/Tokopedia.</p>
+                    <p class="mt-1 text-sm text-on-surface-variant">Job masuk ke antrian. Cron worker memproses otomatis dalam ~1 menit. Pantau di <strong class="text-primary">Live Monitor</strong>.</p>
                 </div>
             </div>
         </div>
