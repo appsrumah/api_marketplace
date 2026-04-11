@@ -582,14 +582,59 @@ class StockController extends Controller
     public function syncProgress(): JsonResponse
     {
         $accounts = AccountShopTiktok::forUser()->get();
+        $now      = now();
 
-        // Queue stats: pending = belum diambil worker, reserved = sedang berjalan
-        $pending  = 0;
-        $reserved = 0;
+        // ── Queue stats ──────────────────────────────────────────────────
+        // available = pending & bisa diambil worker sekarang
+        // delayed   = pending tapi masih dalam backoff (available_at > now) — SEDANG RETRY
+        // reserved  = sedang diproses worker
+        $available    = 0;
+        $delayed      = 0;
+        $reserved     = 0;
+        $failedCount  = 0;
+        $recentErrors = [];
+
         try {
-            $pending  = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNull('reserved_at')->count();
-            $reserved = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNotNull('reserved_at')->count();
+            $available = DB::table('jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->whereNull('reserved_at')
+                ->where('available_at', '<=', $now->timestamp)
+                ->count();
+
+            $delayed = DB::table('jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->whereNull('reserved_at')
+                ->where('available_at', '>', $now->timestamp)
+                ->count();
+
+            $reserved = DB::table('jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->whereNotNull('reserved_at')
+                ->count();
         } catch (\Throwable $e) { /* tabel jobs belum ada */
+        }
+
+        // ── Failed jobs (diagnostik error) ──────────────────────────────
+        try {
+            $failedCount = DB::table('failed_jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->count();
+
+            $recentErrors = DB::table('failed_jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->orderByDesc('failed_at')
+                ->limit(5)
+                ->get(['id', 'payload', 'exception', 'failed_at'])
+                ->map(function ($job) {
+                    $payload    = json_decode($job->payload, true);
+                    $firstLine  = explode("\n", $job->exception ?? '')[0];
+                    return [
+                        'failed_at' => $job->failed_at,
+                        'job'       => $payload['displayName'] ?? 'Unknown',
+                        'error'     => mb_substr($firstLine, 0, 200),
+                    ];
+                })->all();
+        } catch (\Throwable $e) { /* tabel failed_jobs belum ada */
         }
 
         $accountProgress = $accounts->map(function ($account) {
@@ -607,13 +652,41 @@ class StockController extends Controller
 
         return response()->json([
             'queue' => [
-                'pending'  => $pending,
-                'reserved' => $reserved,
-                'total'    => $pending + $reserved,
+                'available' => $available,   // siap diproses worker
+                'delayed'   => $delayed,     // dalam backoff (retry menunggu)
+                'running'   => $reserved,    // sedang diproses worker
+                'failed'    => $failedCount, // gagal total (cek recent_errors)
+                'pending'   => $available + $delayed, // compat lama
+                'total'     => $available + $delayed + $reserved,
             ],
-            'accounts'   => $accountProgress,
-            'checked_at' => now()->toIso8601String(),
+            'recent_errors' => $recentErrors,
+            'accounts'      => $accountProgress,
+            'checked_at'    => $now->toIso8601String(),
         ]);
+    }
+
+    /* ================================================================
+     *  Hapus failed jobs & dispatch ulang semua akun
+     *  POST /stock/clear-failed
+     * ================================================================ */
+    public function clearFailed(): JsonResponse
+    {
+        try {
+            $deleted = DB::table('failed_jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->delete();
+        } catch (\Throwable $e) {
+            $deleted = 0;
+        }
+
+        // Dispatch ulang
+        $stockResponse = $this->syncAll();
+        $stockData     = json_decode($stockResponse->getContent(), true) ?? [];
+
+        return response()->json(array_merge($stockData, [
+            'failed_cleared' => $deleted,
+            'info' => "Hapus {$deleted} failed jobs + dispatch ulang semua akun.",
+        ]), 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
     /* ================================================================

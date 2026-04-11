@@ -124,24 +124,30 @@
                   x-text="liveStatus ? 'Dicek: ' + new Date(liveStatus.checked_at).toLocaleTimeString('id-ID') : 'Memuat...'"></span>
         </div>
         {{-- Queue summary --}}
-        <div class="grid grid-cols-3 divide-x divide-outline-variant/20 border-b border-outline-variant/20">
+        <div class="grid grid-cols-4 divide-x divide-outline-variant/20 border-b border-outline-variant/20">
             <div class="px-5 py-3 text-center">
-                <p class="text-xs font-medium text-on-surface-variant">Antri (pending)</p>
+                <p class="text-xs font-medium text-on-surface-variant">Antri (siap)</p>
                 <p class="mt-0.5 text-xl font-bold"
-                   :class="liveStatus && liveStatus.queue.pending > 0 ? 'text-secondary' : 'text-on-surface-variant/40'"
-                   x-text="liveStatus ? liveStatus.queue.pending : '—'"></p>
+                   :class="liveStatus && liveStatus.queue.available > 0 ? 'text-secondary' : 'text-on-surface-variant/40'"
+                   x-text="liveStatus ? liveStatus.queue.available : '—'"></p>
+            </div>
+            <div class="px-5 py-3 text-center">
+                <p class="text-xs font-medium text-on-surface-variant">Menunggu retry</p>
+                <p class="mt-0.5 text-xl font-bold"
+                   :class="liveStatus && liveStatus.queue.delayed > 0 ? 'text-amber-500' : 'text-on-surface-variant/40'"
+                   x-text="liveStatus ? liveStatus.queue.delayed : '—'"></p>
             </div>
             <div class="px-5 py-3 text-center">
                 <p class="text-xs font-medium text-on-surface-variant">Sedang jalan</p>
                 <p class="mt-0.5 text-xl font-bold"
-                   :class="liveStatus && liveStatus.queue.reserved > 0 ? 'text-primary' : 'text-on-surface-variant/40'"
-                   x-text="liveStatus ? liveStatus.queue.reserved : '—'"></p>
+                   :class="liveStatus && liveStatus.queue.running > 0 ? 'text-primary' : 'text-on-surface-variant/40'"
+                   x-text="liveStatus ? liveStatus.queue.running : '—'"></p>
             </div>
             <div class="px-5 py-3 text-center">
-                <p class="text-xs font-medium text-on-surface-variant">Total aktif</p>
+                <p class="text-xs font-medium text-on-surface-variant">Gagal total</p>
                 <p class="mt-0.5 text-xl font-bold"
-                   :class="liveStatus && liveStatus.queue.total > 0 ? 'text-primary' : 'text-on-surface-variant/40'"
-                   x-text="liveStatus ? liveStatus.queue.total : '—'"></p>
+                   :class="liveStatus && liveStatus.queue.failed > 0 ? 'text-error' : 'text-on-surface-variant/40'"
+                   x-text="liveStatus ? liveStatus.queue.failed : '—'"></p>
             </div>
         </div>
         {{-- Per-akun progress rows --}}
@@ -199,6 +205,24 @@
                               :class="loadingAction === 'sync-account-' + acc.account_id || (acc.progress && acc.progress.status === 'running') ? 'animate-spin' : ''">sync</span>
                         <span x-text="acc.progress && acc.progress.status === 'running' ? 'Jalan...' : 'Sync'"></span>
                     </button>
+                </div>
+            </template>
+        </div>
+        {{-- Error panel — muncul jika ada failed jobs --}}
+        <div x-show="liveStatus && liveStatus.queue.failed > 0 && liveStatus.recent_errors && liveStatus.recent_errors.length"
+             class="border-t border-outline-variant/20 bg-error-container/20 px-5 py-3">
+            <p class="mb-2 flex items-center gap-1.5 text-xs font-bold text-error">
+                <span class="material-symbols-outlined text-[14px]">error</span>
+                <span x-text="liveStatus.queue.failed + ' job gagal — ' + liveStatus.recent_errors.length + ' error terakhir:'"></span>
+                <button @click="doClearFailed()"
+                        class="ml-auto rounded-lg bg-error/10 px-2 py-0.5 text-[10px] font-semibold text-error hover:bg-error/20">
+                    Hapus & Dispatch Ulang
+                </button>
+            </p>
+            <template x-for="(err, i) in liveStatus.recent_errors" :key="i">
+                <div class="mb-1 rounded-lg bg-surface-container-lowest px-3 py-2">
+                    <p class="text-[10px] font-semibold text-on-surface" x-text="err.job + ' — ' + err.failed_at"></p>
+                    <p class="mt-0.5 truncate font-mono text-[10px] text-error" x-text="err.error"></p>
                 </div>
             </template>
         </div>
@@ -645,6 +669,21 @@ function stockSync() {
                     headers: { 'Accept': 'application/json' }
                 })
             );
+        },
+
+        async doClearFailed() {
+            if (!confirm('Hapus semua failed jobs dan dispatch ulang 19 jobs baru?\n\nPastikan masalah error sudah diperbaiki sebelum dispatch ulang.')) return;
+            await this.call('clear-failed', 'Bersihkan failed & dispatch ulang', () =>
+                fetch('{{ route("stock.clear-failed") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    }
+                })
+            );
+            await this.fetchLiveStatus();
         },
 
         async call(action, label, fetchFn) {

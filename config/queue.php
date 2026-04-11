@@ -40,7 +40,10 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // ✅ PENTING: retry_after HARUS > job timeout (600s).
+            // Default Laravel 90 terlalu pendek — worker berikutnya akan melepas job
+            // yang sedang berjalan >90 detik kembali ke "pending" (double-process & infinite loop).
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 700),
             'after_commit' => false,
         ],
 
