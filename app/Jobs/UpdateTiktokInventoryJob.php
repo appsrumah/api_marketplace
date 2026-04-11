@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\AccountShopTiktok;
 use App\Services\PosStockService;
 use App\Services\TiktokApiService;
+use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -73,13 +74,14 @@ class UpdateTiktokInventoryJob implements ShouldQueue
 
             $newToken = $tiktokService->refreshAccessToken($account->refresh_token);
             $account->update([
-                'access_token'           => $newToken['access_token'],
-                'access_token_expire_in' => now()->addSeconds($newToken['access_token_expire_in'] ?? 0),
-                'refresh_token'          => $newToken['refresh_token'] ?? $account->refresh_token,
+                'access_token'            => $newToken['access_token'],
+                // ✅ Unix Timestamp dari TikTok — bukan addSeconds() dari sekarang
+                'access_token_expire_in'  => Carbon::createFromTimestamp($newToken['access_token_expire_in'] ?? 0),
+                'refresh_token'           => $newToken['refresh_token'] ?? $account->refresh_token,
                 'refresh_token_expire_in' => isset($newToken['refresh_token_expire_in'])
-                    ? now()->addSeconds($newToken['refresh_token_expire_in'])
+                    ? Carbon::createFromTimestamp($newToken['refresh_token_expire_in'])
                     : $account->refresh_token_expire_in,
-                'token_obtained_at'      => now(),
+                'token_obtained_at'       => now(),
             ]);
             $account->refresh();
         }
