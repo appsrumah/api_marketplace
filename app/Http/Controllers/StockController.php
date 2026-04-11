@@ -551,6 +551,14 @@ class StockController extends Controller
     /* ================================================================
      *  Cron via curl — Jalankan queue worker (tanpa exec/shell)
      *  GET /stock/run-queue?secret=xxx
+     *
+     *  DEPRECATED: Gunakan /queue-worker.php (standalone, lebih reliable).
+     *  Endpoint ini tetap dipertahankan sebagai backup.
+     *
+     *  PENTING:
+     *  - ignore_user_abort(true) → PHP tetap jalan meski curl disconnect
+     *  - set_time_limit(600)     → 10 menit max
+     *  - --max-jobs=1            → proses 1 job per panggilan
      * ================================================================ */
     public function runQueue(Request $request): JsonResponse
     {
@@ -558,30 +566,48 @@ class StockController extends Controller
             return response()->json(['status' => 'Unauthorized'], 401);
         }
 
-        @set_time_limit(300);
+        // PHP tetap hidup meski curl disconnect (timeout biasanya 60 detik)
+        ignore_user_abort(true);
+        @set_time_limit(600);
 
         try {
-            // Artisan::call() bekerja tanpa exec() — murni PHP internal
+            // Cek dulu apakah ada job
+            $pending = DB::table('jobs')
+                ->where('queue', 'tiktok-inventory')
+                ->whereNull('reserved_at')
+                ->count();
+
+            if ($pending === 0) {
+                return response()->json([
+                    'status'  => 'Queue kosong',
+                    'pending' => 0,
+                ]);
+            }
+
+            // Proses 1 job saja — aman untuk HTTP timeout
             $exitCode = \Illuminate\Support\Facades\Artisan::call('queue:work', [
-                '--queue'           => 'tiktok-inventory',
-                '--stop-when-empty' => true,
-                '--max-time'        => 55,
-                '--tries'           => 3,
+                '--queue'    => 'tiktok-inventory',
+                '--max-jobs' => 1,
+                '--tries'    => 2,
+                '--timeout'  => 540,  // 9 menit (di bawah set_time_limit)
+                '--memory'   => 256,
             ]);
 
-            $output = \Illuminate\Support\Facades\Artisan::output();
+            $output    = \Illuminate\Support\Facades\Artisan::output();
+            $remaining = DB::table('jobs')->where('queue', 'tiktok-inventory')->count();
 
             return response()->json([
-                'status'    => 'Queue worker selesai',
-                'exit_code' => $exitCode,
-                'output'    => $output ?: '(tidak ada output — kemungkinan queue kosong)',
-            ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+                'status'         => 'Worker selesai',
+                'exit_code'      => $exitCode,
+                'jobs_remaining' => $remaining,
+                'output'         => trim($output) ?: '(job selesai)',
+            ]);
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => 'ERROR',
                 'pesan'  => $e->getMessage(),
                 'file'   => basename($e->getFile()) . ':' . $e->getLine(),
-            ], 500, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            ], 500);
         }
     }
 
