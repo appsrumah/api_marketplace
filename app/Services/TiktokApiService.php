@@ -335,6 +335,324 @@ class TiktokApiService
     }
 
     /* ===================================================================
+<<<<<<< Updated upstream
+=======
+     *  SEARCH ORDERS  — POST /order/202309/orders/search
+     *
+     *  Query  : app_key, sign, timestamp, page_size, page_token, shop_cipher
+     *  Header : x-tts-access-token, Content-Type: application/json
+     *  Body   : { order_status, create_time_ge, create_time_lt, ... }
+     * =================================================================== */
+    public function searchOrders(
+        string  $accessToken,
+        string  $shopCipher,
+        int     $pageSize = 20,
+        ?string $pageToken = null,
+        array   $filters = []
+    ): array {
+        $path      = '/order/202309/orders/search';
+        $timestamp = time();
+
+        $queryParams = [
+            'app_key'     => $this->appKey,
+            'timestamp'   => $timestamp,
+            'shop_cipher' => $shopCipher,
+            'page_size'   => min($pageSize, 100),
+        ];
+
+        if ($pageToken) {
+            $queryParams['page_token'] = $pageToken;
+        }
+
+        $bodyJson = !empty($filters) ? json_encode($filters) : '{}';
+
+        $sign = $this->buildSign($path, $queryParams, $bodyJson);
+
+        $queryParams['sign']         = $sign;
+        $queryParams['access_token'] = $accessToken;
+
+        $url = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Content-Type'       => 'application/json',
+                'x-tts-access-token' => $accessToken,
+            ])
+            ->withBody($bodyJson, 'application/json')
+            ->post($url);
+
+        $data = $response->json();
+
+        if (($data['code'] ?? -1) !== 0) {
+            Log::error('TikTok searchOrders failed', [
+                'filters'  => $filters,
+                'response' => $data,
+            ]);
+            throw new \RuntimeException(
+                'TikTok Search Orders Error [' . ($data['code'] ?? '?') . ']: '
+                    . ($data['message'] ?? 'Unknown error')
+            );
+        }
+
+        return $data['data'] ?? [];
+    }
+
+    /* ===================================================================
+     *  GET ORDER DETAIL  — GET /order/202309/orders
+     *
+     *  Query  : app_key, sign, timestamp, ids (comma-sep, max 50), shop_cipher
+     *  Header : x-tts-access-token, Content-Type: application/json
+     * =================================================================== */
+    public function getOrderDetail(
+        string $accessToken,
+        string $shopCipher,
+        array  $orderIds
+    ): array {
+        $path      = '/order/202309/orders';
+        $timestamp = time();
+
+        $queryParams = [
+            'app_key'     => $this->appKey,
+            'timestamp'   => $timestamp,
+            'shop_cipher' => $shopCipher,
+            'ids'         => implode(',', array_slice($orderIds, 0, 50)),
+        ];
+
+        $sign = $this->buildSign($path, $queryParams);
+
+        $queryParams['sign']         = $sign;
+        $queryParams['access_token'] = $accessToken;
+
+        $url = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Content-Type'       => 'application/json',
+                'x-tts-access-token' => $accessToken,
+            ])
+            ->get($url);
+
+        $data = $response->json();
+
+        if (($data['code'] ?? -1) !== 0) {
+            Log::error('TikTok getOrderDetail failed', [
+                'order_ids' => $orderIds,
+                'response'  => $data,
+            ]);
+            throw new \RuntimeException(
+                'TikTok Get Order Detail Error [' . ($data['code'] ?? '?') . ']: '
+                    . ($data['message'] ?? 'Unknown error')
+            );
+        }
+
+        return $data['data'] ?? [];
+    }
+
+    /* ===================================================================
+     *  GET PRODUCT DETAIL  — GET /product/202309/products/{product_id}
+     *
+     *  Query  : app_key, sign, timestamp, shop_cipher
+     *  Header : x-tts-access-token, Content-Type: application/json
+     * =================================================================== */
+    public function getProductDetail(
+        string $accessToken,
+        string $shopCipher,
+        string $productId
+    ): array {
+        $path      = "/product/202309/products/{$productId}";
+        $timestamp = time();
+
+        $queryParams = [
+            'app_key'     => $this->appKey,
+            'timestamp'   => $timestamp,
+            'shop_cipher' => $shopCipher,
+        ];
+
+        $sign = $this->buildSign($path, $queryParams);
+
+        $queryParams['sign']         = $sign;
+        $queryParams['access_token'] = $accessToken;
+
+        $url = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Content-Type'       => 'application/json',
+                'x-tts-access-token' => $accessToken,
+            ])
+            ->get($url);
+
+        $data = $response->json();
+
+        if (($data['code'] ?? -1) !== 0) {
+            Log::error('TikTok getProductDetail failed', [
+                'product_id' => $productId,
+                'response'   => $data,
+            ]);
+            throw new \RuntimeException(
+                'TikTok Get Product Detail Error [' . ($data['code'] ?? '?') . ']: '
+                    . ($data['message'] ?? 'Unknown error')
+            );
+        }
+
+        return $data['data'] ?? [];
+    }
+
+    /* ===================================================================
+     *  EDIT PRODUCT  — PUT /product/202509/products/{product_id}
+     *
+     *  Query  : app_key, sign, timestamp, shop_cipher
+     *  Header : x-tts-access-token, Content-Type: application/json
+     *  Body   : { title, description, skus, ... }
+     * =================================================================== */
+    public function editProduct(
+        string $accessToken,
+        string $shopCipher,
+        string $productId,
+        array  $body
+    ): array {
+        $path      = "/product/202509/products/{$productId}";
+        $timestamp = time();
+
+        $queryParams = [
+            'app_key'     => $this->appKey,
+            'timestamp'   => $timestamp,
+            'shop_cipher' => $shopCipher,
+        ];
+
+        $bodyJson = json_encode($body);
+
+        $sign = $this->buildSign($path, $queryParams, $bodyJson);
+
+        $queryParams['sign']         = $sign;
+        $queryParams['access_token'] = $accessToken;
+
+        $url = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'Content-Type'       => 'application/json',
+                'x-tts-access-token' => $accessToken,
+            ])
+            ->withBody($bodyJson, 'application/json')
+            ->put($url);
+
+        $data = $response->json();
+
+        if (($data['code'] ?? -1) !== 0) {
+            Log::error('TikTok editProduct failed', [
+                'product_id' => $productId,
+                'body'       => $body,
+                'response'   => $data,
+            ]);
+            throw new \RuntimeException(
+                'TikTok Edit Product Error [' . ($data['code'] ?? '?') . ']: '
+                    . ($data['message'] ?? 'Unknown error')
+            );
+        }
+
+        Log::info('TikTok editProduct success', ['product_id' => $productId]);
+
+        return $data['data'] ?? [];
+    }
+
+    /* ===================================================================
+     *  UPDATE SHOP WEBHOOK — PUT /event/202309/webhooks
+     *  Mendaftarkan webhook URL untuk event tertentu
+     * =================================================================== */
+    public function updateShopWebhook(
+        string $accessToken,
+        string $shopCipher,
+        string $address,
+        string $eventType
+    ): array {
+        $path      = '/event/202309/webhooks';
+        $timestamp = time();
+
+        $queryParams = [
+            'app_key'     => $this->appKey,
+            'timestamp'   => $timestamp,
+            'shop_cipher' => $shopCipher,
+        ];
+
+        $bodyArray = [
+            'address'    => $address,
+            'event_type' => $eventType,
+        ];
+
+        $bodyJson = json_encode($bodyArray);
+
+        $sign = $this->buildSign($path, $queryParams, $bodyJson);
+
+        $queryParams['sign']         = $sign;
+        $queryParams['access_token'] = $accessToken;
+
+        $url = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+        $response = Http::withHeaders([
+            'Content-Type'       => 'application/json',
+            'x-tts-access-token' => $accessToken,
+        ])->withBody($bodyJson, 'application/json')->put($url);
+
+        $data = $response->json();
+
+        if (($data['code'] ?? -1) !== 0) {
+            Log::error('TikTok updateShopWebhook failed', [
+                'event_type' => $eventType,
+                'address'    => $address,
+                'response'   => $data,
+            ]);
+            throw new \RuntimeException(
+                'Update Webhook Error [' . ($data['code'] ?? '?') . ']: '
+                    . ($data['message'] ?? 'Unknown error')
+            );
+        }
+
+        return $data['data'] ?? [];
+    }
+
+    /* ===================================================================
+     *  GET SHOP WEBHOOKS — GET /event/202309/webhooks
+     *  Lihat semua webhook yang sudah terdaftar di shop
+     * =================================================================== */
+    public function getShopWebhooks(string $accessToken, string $shopCipher): array
+    {
+        $path      = '/event/202309/webhooks';
+        $timestamp = time();
+
+        $queryParams = [
+            'app_key'     => $this->appKey,
+            'timestamp'   => $timestamp,
+            'shop_cipher' => $shopCipher,
+        ];
+
+        $sign = $this->buildSign($path, $queryParams);
+
+        $queryParams['sign']         = $sign;
+        $queryParams['access_token'] = $accessToken;
+
+        $url = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+        $response = Http::withHeaders([
+            'Content-Type'       => 'application/json',
+            'x-tts-access-token' => $accessToken,
+        ])->get($url);
+
+        $data = $response->json();
+
+        if (($data['code'] ?? -1) !== 0) {
+            Log::error('TikTok getShopWebhooks failed', $data);
+            throw new \RuntimeException(
+                'Get Webhooks Error [' . ($data['code'] ?? '?') . ']: '
+                    . ($data['message'] ?? 'Unknown error')
+            );
+        }
+
+        return $data['data'] ?? [];
+    }
+
+    /* ===================================================================
+>>>>>>> Stashed changes
      *  AUTH URL — redirect user to TikTok OAuth
      * =================================================================== */
     public function getAuthUrl(): string

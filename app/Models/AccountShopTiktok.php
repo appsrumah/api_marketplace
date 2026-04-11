@@ -19,6 +19,7 @@ class AccountShopTiktok extends Model
         'shop_id',
         'shop_name',
         'shop_cipher',
+        'no_telp',            // ← Nomor HP penerima notifikasi Wablas (koma-separated)
         'status',
         'token_obtained_at',
         'last_sync_at',
@@ -63,5 +64,19 @@ class AccountShopTiktok extends Model
             return true;
         }
         return now()->gt($this->refresh_token_expire_in);
+    }
+
+    /**
+     * Ambil daftar nomor HP penerima notifikasi (dari kolom no_telp)
+     * @return string[]
+     */
+    public function getNotifPhones(): array
+    {
+        if (empty($this->no_telp)) {
+            return [];
+        }
+        return array_filter(
+            array_map('trim', explode(',', $this->no_telp))
+        );
     }
 }

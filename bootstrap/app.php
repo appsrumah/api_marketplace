@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'stock/sync-all',           // cron/external trigger update stok
             'stock/cron-sync-all',      // curl cron trigger
             'stock/run-queue',          // curl cron queue worker
+            'webhooks/tiktok',          // TikTok webhook event receiver
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

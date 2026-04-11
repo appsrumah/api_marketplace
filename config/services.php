@@ -43,4 +43,11 @@ return [
         'forward_secret' => env('TIKTOK_FORWARD_SECRET', 'kiosq_secret_2026'),
     ],
 
+    'wablas' => [
+        'server'      => env('WABLAS_SERVER', 'https://pati.wablas.com'),
+        'token'       => env('WABLAS_TOKEN', ''),
+        'secret_key'  => env('WABLAS_SECRET_KEY', ''),
+        'phone_notif' => env('WABLAS_PHONE_NOTIF', ''),
+    ],
+
 ];
