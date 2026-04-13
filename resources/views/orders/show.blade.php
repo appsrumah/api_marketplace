@@ -52,7 +52,7 @@
                             <p class="text-xs text-on-surface-variant"> Qty {{ $item->quantity }}</p>
                         </div>
                         <div class="w-28 shrink-0 text-right">
-                            <p class="text-sm font-bold text-on-surface">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>
+                            <p class="text-sm font-bold text-on-surface">Rp {{ number_format($item->real_subtotal, 0, ',', '.') }}</p>
                             @if($item->total_discount > 0)
                                 <p class="text-[10px] text-secondary">-Rp {{ number_format($item->total_discount, 0, ',', '.') }}</p>
                             @endif

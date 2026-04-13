@@ -184,29 +184,50 @@ class OrderController extends Controller
             ));
         }
 
-        // items (use line_items). Prefer original_price for storage; cast numeric.
+        // items — TikTok kirim 1 line_item PER UNIT, jadi group by sku dulu
+        // lalu simpan dengan key tiktok_line_item_id agar tidak saling timpa
+        $groupedItems = [];
         foreach ($lineItems as $li) {
-            $sku = $li['seller_sku'] ?? $li['sku_id'] ?? null;
+            $lineItemId = $li['id'] ?? null;
+            $sku        = $li['seller_sku'] ?? $li['sku_id'] ?? null;
             if (!$sku) continue;
+
+            if (isset($groupedItems[$sku])) {
+                // Tambahkan qty karena TikTok pisah per unit
+                $groupedItems[$sku]['quantity']         += 1;
+                $groupedItems[$sku]['platform_discount'] += (float)($li['platform_discount'] ?? 0);
+                $groupedItems[$sku]['seller_discount']   += (float)($li['seller_discount'] ?? 0);
+            } else {
+                $groupedItems[$sku] = [
+                    'tiktok_line_item_id' => $lineItemId,
+                    'product_id'          => $li['product_id'] ?? null,
+                    'product_name'        => $li['product_name'] ?? null,
+                    'sku_id'              => $li['sku_id'] ?? null,
+                    'sku_name'            => $li['sku_name'] ?? null,
+                    'seller_sku'          => $sku,
+                    'quantity'            => 1,
+                    'original_price'      => isset($li['original_price']) ? (float)$li['original_price'] : (float)($li['sale_price'] ?? 0),
+                    'sale_price'          => isset($li['sale_price']) ? (float)$li['sale_price'] : null,
+                    'platform_discount'   => (float)($li['platform_discount'] ?? 0),
+                    'seller_discount'     => (float)($li['seller_discount'] ?? 0),
+                    'currency'            => $li['currency'] ?? $payment['currency'] ?? 'IDR',
+                    'product_image'       => $li['sku_image'] ?? null,
+                    'item_status'         => $li['display_status'] ?? null,
+                ];
+            }
+        }
+
+        foreach ($groupedItems as $sku => $itemData) {
+            $subtotal = $itemData['original_price'] * $itemData['quantity'];
 
             OrderItem::updateOrCreate(
                 [
-                    'order_id' => $order->id,
-                    'seller_sku' => $sku,
+                    'order_id'   => $order->id,
+                    'seller_sku' => $sku,           // key: 1 record per SKU per order
                 ],
-                [
-                    'product_id'       => $li['product_id'] ?? null,
-                    'product_name'     => $li['product_name'] ?? null,
-                    'sku_id'           => $li['sku_id'] ?? null,
-                    'sku_name'         => $li['sku_name'] ?? null,
-                    'quantity'         => isset($li['quantity']) ? (int)$li['quantity'] : 1,
-                    'original_price'   => isset($li['original_price']) ? (float)$li['original_price'] : (float)($li['sale_price'] ?? 0),
-                    'sale_price'       => isset($li['sale_price']) ? (float)$li['sale_price'] : null,
-                    'platform_discount' => isset($li['platform_discount']) ? (float)$li['platform_discount'] : 0,
-                    'seller_discount'  => isset($li['seller_discount']) ? (float)$li['seller_discount'] : 0,
-                    'currency'         => $li['currency'] ?? $payment['currency'] ?? 'IDR',
-                    'product_image'    => $li['sku_image'] ?? null,
-                ]
+                array_merge($itemData, [
+                    'subtotal' => $subtotal,
+                ])
             );
         }
 

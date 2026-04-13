@@ -137,15 +137,15 @@ class PosOrderService
                 // Gunakan original_price saja jika tersedia, fallback ke harga POS
                 $harga = (float) (
                     ($item->original_price ?? 0) > 0
-                        ? $item->original_price
-                        : ($product->harga ?? 0)
+                    ? $item->original_price
+                    : ($product->harga ?? 0)
                 );
-                $qty = (int) ($item->quantity ?? 1);
+                $qty = (int) ($item->quantity ?? 1);  // ← sudah benar, qty dari grouped items
 
                 $this->pos()->table('so_detail')->insert([
                     'id_so'          => $idSo,
                     'id_product'     => $product->id,
-                    'qty'            => $qty,
+                    'qty'            => $qty,           // ← qty sudah include semua unit
                     'harga'          => $harga,
                     'modal'          => $product->modal ?? 0,
                     'harga_reseller' => $product->harga_reseller ?? 0,

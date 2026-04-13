@@ -10,6 +10,7 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'tiktok_order_id',
+        'tiktok_line_item_id',  // tambah ini untuk key unik per item
         'product_id',
         'product_name',
         'sku_id',
@@ -50,9 +51,12 @@ class OrderItem extends Model
 
     // ─── Computed ──────────────────────────────────────────────────────────
 
-    public function getSubtotalAttribute(): float
+    // HAPUS getSubtotalAttribute() agar tidak override kolom subtotal DB
+    // Gunakan getRealSubtotalAttribute() sebagai computed helper jika perlu
+
+    public function getRealSubtotalAttribute(): float
     {
-        return round($this->sale_price * $this->quantity, 2);
+        return round((float)($this->original_price ?? $this->sale_price ?? 0) * ($this->quantity ?? 1), 2);
     }
 
     public function getTotalDiscountAttribute(): float
