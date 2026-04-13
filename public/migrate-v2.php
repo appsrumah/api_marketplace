@@ -650,6 +650,56 @@ try {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ALTER: orders — tambah buyer_email
+// ═══════════════════════════════════════════════════════════════════════════════
+try {
+    if (Schema::hasTable('orders') && !Schema::hasColumn('orders', 'buyer_email')) {
+        DB::statement("ALTER TABLE orders ADD COLUMN buyer_email VARCHAR(255) NULL AFTER buyer_phone");
+        $recordMigration('2026_04_13_000001_add_buyer_email_to_orders_table');
+        $results[] = ['status' => '✅', 'msg' => 'Kolom orders.buyer_email ditambahkan'];
+    } else {
+        $results[] = ['status' => 'ℹ️', 'msg' => 'Kolom orders.buyer_email sudah ada — dilewati'];
+    }
+} catch (\Throwable $e) {
+    $results[] = ['status' => '❌', 'msg' => 'Gagal tambah orders.buyer_email: ' . $e->getMessage()];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALTER: order_items — tambah tiktok_line_item_id, currency, item_status, is_gift
+// ═══════════════════════════════════════════════════════════════════════════════
+try {
+    if (Schema::hasTable('order_items')) {
+        $added = [];
+
+        if (!Schema::hasColumn('order_items', 'tiktok_line_item_id')) {
+            DB::statement("ALTER TABLE order_items ADD COLUMN tiktok_line_item_id VARCHAR(50) NULL AFTER tiktok_order_id");
+            $added[] = 'tiktok_line_item_id';
+        }
+        if (!Schema::hasColumn('order_items', 'currency')) {
+            DB::statement("ALTER TABLE order_items ADD COLUMN currency VARCHAR(10) NOT NULL DEFAULT 'IDR' AFTER subtotal");
+            $added[] = 'currency';
+        }
+        if (!Schema::hasColumn('order_items', 'item_status')) {
+            DB::statement("ALTER TABLE order_items ADD COLUMN item_status VARCHAR(50) NULL AFTER currency");
+            $added[] = 'item_status';
+        }
+        if (!Schema::hasColumn('order_items', 'is_gift')) {
+            DB::statement("ALTER TABLE order_items ADD COLUMN is_gift TINYINT(1) NOT NULL DEFAULT 0 AFTER item_status");
+            $added[] = 'is_gift';
+        }
+
+        if (!empty($added)) {
+            $recordMigration('2026_04_13_000002_add_missing_columns_to_order_items_table');
+            $results[] = ['status' => '✅', 'msg' => 'Kolom order_items ditambahkan: ' . implode(', ', $added)];
+        } else {
+            $results[] = ['status' => 'ℹ️', 'msg' => 'Semua kolom order_items sudah ada — dilewati'];
+        }
+    }
+} catch (\Throwable $e) {
+    $results[] = ['status' => '❌', 'msg' => 'Gagal tambah kolom order_items: ' . $e->getMessage()];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // VERIFIKASI
 // ═══════════════════════════════════════════════════════════════════════════════
 $checks = [
@@ -668,6 +718,12 @@ $checks = [
     'col: ast.channel_id'  => Schema::hasColumn('account_shop_tiktok', 'channel_id'),
     'col: ast.warehouse_id' => Schema::hasColumn('account_shop_tiktok', 'warehouse_id'),
     'col: produk.channel_id' => Schema::hasColumn('produk_saya', 'channel_id'),
+    // kolom baru v2 patch
+    'col: orders.buyer_email'              => Schema::hasColumn('orders', 'buyer_email'),
+    'col: order_items.tiktok_line_item_id' => Schema::hasColumn('order_items', 'tiktok_line_item_id'),
+    'col: order_items.currency'            => Schema::hasColumn('order_items', 'currency'),
+    'col: order_items.item_status'         => Schema::hasColumn('order_items', 'item_status'),
+    'col: order_items.is_gift'             => Schema::hasColumn('order_items', 'is_gift'),
     // existing
     'jobs'                 => Schema::hasTable('jobs'),
     'sessions'             => Schema::hasTable('sessions'),
