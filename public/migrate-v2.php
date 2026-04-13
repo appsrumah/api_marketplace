@@ -675,16 +675,20 @@ try {
             DB::statement("ALTER TABLE order_items ADD COLUMN tiktok_line_item_id VARCHAR(50) NULL AFTER tiktok_order_id");
             $added[] = 'tiktok_line_item_id';
         }
+        if (!Schema::hasColumn('order_items', 'subtotal')) {
+            DB::statement("ALTER TABLE order_items ADD COLUMN subtotal DECIMAL(15,2) NOT NULL DEFAULT 0");
+            $added[] = 'subtotal';
+        }
         if (!Schema::hasColumn('order_items', 'currency')) {
-            DB::statement("ALTER TABLE order_items ADD COLUMN currency VARCHAR(10) NOT NULL DEFAULT 'IDR' AFTER subtotal");
+            DB::statement("ALTER TABLE order_items ADD COLUMN currency VARCHAR(10) NOT NULL DEFAULT 'IDR'");
             $added[] = 'currency';
         }
         if (!Schema::hasColumn('order_items', 'item_status')) {
-            DB::statement("ALTER TABLE order_items ADD COLUMN item_status VARCHAR(50) NULL AFTER currency");
+            DB::statement("ALTER TABLE order_items ADD COLUMN item_status VARCHAR(50) NULL");
             $added[] = 'item_status';
         }
         if (!Schema::hasColumn('order_items', 'is_gift')) {
-            DB::statement("ALTER TABLE order_items ADD COLUMN is_gift TINYINT(1) NOT NULL DEFAULT 0 AFTER item_status");
+            DB::statement("ALTER TABLE order_items ADD COLUMN is_gift TINYINT(1) NOT NULL DEFAULT 0");
             $added[] = 'is_gift';
         }
 
@@ -720,6 +724,7 @@ $checks = [
     'col: produk.channel_id' => Schema::hasColumn('produk_saya', 'channel_id'),
     // kolom baru v2 patch
     'col: orders.buyer_email'              => Schema::hasColumn('orders', 'buyer_email'),
+    'col: order_items.subtotal'            => Schema::hasColumn('order_items', 'subtotal'),
     'col: order_items.tiktok_line_item_id' => Schema::hasColumn('order_items', 'tiktok_line_item_id'),
     'col: order_items.currency'            => Schema::hasColumn('order_items', 'currency'),
     'col: order_items.item_status'         => Schema::hasColumn('order_items', 'item_status'),
