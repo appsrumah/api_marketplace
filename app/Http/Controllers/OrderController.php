@@ -192,9 +192,12 @@ class OrderController extends Controller
             $sku        = $li['seller_sku'] ?? $li['sku_id'] ?? null;
             if (!$sku) continue;
 
+            // TikTok sering kirim qty per line_item = 1 (1 item per baris), tapi bisa juga > 1
+            $liQty = (int)($li['quantity'] ?? 1);
+
             if (isset($groupedItems[$sku])) {
-                // Tambahkan qty karena TikTok pisah per unit
-                $groupedItems[$sku]['quantity']         += 1;
+                // Akumulasi qty dan diskon karena TikTok split per unit
+                $groupedItems[$sku]['quantity']          += $liQty;
                 $groupedItems[$sku]['platform_discount'] += (float)($li['platform_discount'] ?? 0);
                 $groupedItems[$sku]['seller_discount']   += (float)($li['seller_discount'] ?? 0);
             } else {
@@ -205,7 +208,7 @@ class OrderController extends Controller
                     'sku_id'              => $li['sku_id'] ?? null,
                     'sku_name'            => $li['sku_name'] ?? null,
                     'seller_sku'          => $sku,
-                    'quantity'            => 1,
+                    'quantity'            => $liQty,
                     'original_price'      => isset($li['original_price']) ? (float)$li['original_price'] : (float)($li['sale_price'] ?? 0),
                     'sale_price'          => isset($li['sale_price']) ? (float)$li['sale_price'] : null,
                     'platform_discount'   => (float)($li['platform_discount'] ?? 0),
