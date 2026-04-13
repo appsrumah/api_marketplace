@@ -72,6 +72,8 @@ class Order extends Model
             'tiktok_update_time' => 'integer',
             'is_synced_to_pos' => 'boolean',
             'is_cod' => 'boolean',
+            'shipping_address' => 'array',
+            'raw_data' => 'array',
         ];
     }
 
