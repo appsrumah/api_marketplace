@@ -139,25 +139,26 @@ class OrderController extends Controller
             'payment_status'     => $apiOrder['payment_status'] ?? null,
             'tiktok_update_time' => $apiOrder['update_time'] ?? null,
             'raw_data'           => $apiOrder,
+            // These can change after order creation — always overwrite
+            'buyer_name'         => $recipient['name'] ?? $buyer['buyer_name'] ?? null,
+            'buyer_phone'        => $recipient['phone_number'] ?? $buyer['phone_number'] ?? null,
+            'shipping_address'   => !empty($recipient) ? $recipient : ($shipping['recipient_address'] ?? null),
+            'total_amount'       => isset($payment['total_amount']) ? (float) $payment['total_amount'] : (float) ($payment['original_total_product_price'] ?? 0),
+            'subtotal_amount'    => isset($payment['sub_total']) ? (float) $payment['sub_total'] : (float) ($payment['original_total_product_price'] ?? 0),
+            'shipping_fee'       => isset($payment['shipping_fee']) ? (float) $payment['shipping_fee'] : (float) ($payment['original_shipping_fee'] ?? 0),
+            'platform_discount'  => isset($payment['platform_discount']) ? (float) $payment['platform_discount'] : (float) ($payment['payment_platform_discount'] ?? 0),
+            'payment_method'     => $payment['payment_method_name'] ?? $apiOrder['payment_method_name'] ?? null,
+            'is_cod'             => (bool) ($apiOrder['is_cod'] ?? false),
         ];
 
-        // data set only on create
+        // data set only on create (truly immutable after order creation)
         $createOnly = [
-            'channel_id'           => $account->channel_id ?? null,
-            'warehouse_id'         => $account->warehouse_id ?? null,
-            'platform'             => 'TIKTOK',
-            'buyer_user_id'        => $apiOrder['buyer_uid'] ?? $buyer['user_id'] ?? null,
-            'buyer_name'           => $recipient['name'] ?? $buyer['buyer_name'] ?? null,
-            'buyer_phone'          => $recipient['phone_number'] ?? $buyer['phone_number'] ?? null,
-            'buyer_email'          => $apiOrder['buyer_email'] ?? null,
-            'shipping_address'     => !empty($recipient) ? $recipient : ($shipping['recipient_address'] ?? null),
-            'total_amount'         => isset($payment['total_amount']) ? (float) $payment['total_amount'] : (float) ($payment['original_total_product_price'] ?? 0),
-            'subtotal_amount'      => isset($payment['sub_total']) ? (float) $payment['sub_total'] : (float) ($payment['original_total_product_price'] ?? 0),
-            'shipping_fee'         => isset($payment['shipping_fee']) ? (float) $payment['shipping_fee'] : (float) ($payment['original_shipping_fee'] ?? 0),
-            'platform_discount'    => isset($payment['platform_discount']) ? (float) $payment['platform_discount'] : (float) ($payment['payment_platform_discount'] ?? 0),
-            'payment_method'       => $payment['payment_method_name'] ?? $apiOrder['payment_method_name'] ?? null,
-            'is_cod'               => (bool) ($apiOrder['is_cod'] ?? false),
-            'tiktok_create_time'   => $apiOrder['create_time'] ?? null,
+            'channel_id'         => $account->channel_id ?? null,
+            'warehouse_id'       => $account->warehouse_id ?? null,
+            'platform'           => 'TIKTOK',
+            'buyer_user_id'      => $apiOrder['buyer_uid'] ?? $buyer['user_id'] ?? null,
+            'buyer_email'        => $apiOrder['buyer_email'] ?? null,
+            'tiktok_create_time' => $apiOrder['create_time'] ?? null,
         ];
 
         // timestamps converted
@@ -234,7 +235,7 @@ class OrderController extends Controller
             );
         }
 
-        return $order->id ?? 0;
+        return 1; // 1 order processed
     }
 
     /* ===================================================================
@@ -318,10 +319,25 @@ class OrderController extends Controller
                 }
             } while ($pageToken && $totalPages < 20);
 
-            ActivityLog::record('orders.sync', "Sinkronisasi {$totalSaved} order dari {$account->shop_name}");
+            // Push order yg belum masuk POS setelah sync
+            $posPushed = 0;
+            $unsynced = Order::with(['items', 'account'])
+                ->where('account_id', $account->id)
+                ->where('is_synced_to_pos', false)
+                ->whereNotIn('order_status', ['UNPAID', 'CANCELLED'])
+                ->latest('tiktok_create_time')
+                ->limit(50)
+                ->get();
+
+            if ($unsynced->isNotEmpty()) {
+                $posResult = $this->posService->pushBatchToPos($unsynced);
+                $posPushed = $posResult['success'] ?? 0;
+            }
+
+            ActivityLog::record('orders.sync', "Sinkronisasi {$totalSaved} order dari {$account->shop_name} | POS: +{$posPushed}");
 
             return redirect()->route('orders.index')
-                ->with('success', "Berhasil sinkronisasi {$totalSaved} order dari {$account->shop_name} ({$totalPages} halaman).");
+                ->with('success', "Berhasil sinkronisasi {$totalSaved} order dari {$account->shop_name} ({$totalPages} halaman). Push POS: {$posPushed} order.");
         } catch (\Throwable $e) {
             Log::error('Order sync failed', [
                 'account_id' => $account->id,
