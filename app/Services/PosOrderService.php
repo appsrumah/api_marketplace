@@ -100,6 +100,7 @@ class PosOrderService
                 'no_resi'        => $order->tracking_number ?? '',
                 'id_outlet'      => $idOutlet,
                 'keterangan'     => $shopName . ' | ' . ($order->buyer_name ?? ''),
+                'pembeli'        => $order->buyer_name ?? '',
                 'create_time'    => $createTime,
             ]);
 
@@ -133,10 +134,12 @@ class PosOrderService
                     continue;
                 }
 
-                // Gunakan sale_price jika ada, fallback ke original_price / harga POS
-                $harga = (float) ($item->sale_price > 0
-                    ? $item->sale_price
-                    : ($item->original_price ?? $product->harga ?? 0));
+                // Gunakan original_price saja jika tersedia, fallback ke harga POS
+                $harga = (float) (
+                    ($item->original_price ?? 0) > 0
+                        ? $item->original_price
+                        : ($product->harga ?? 0)
+                );
                 $qty = (int) ($item->quantity ?? 1);
 
                 $this->pos()->table('so_detail')->insert([

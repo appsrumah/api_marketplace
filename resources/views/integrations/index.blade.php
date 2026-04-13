@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Pusat Integrasi')
-@section('breadcrumb', 'Integrasi Ã¢â‚¬â€ Pusat Koneksi Marketplace')
+@section('breadcrumb', 'Integrasi - Pusat Koneksi Marketplace')
 
 @section('content')
 <div class="space-y-8">
@@ -136,7 +136,7 @@
                             <div class="flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
                                 @if($account->seller_name && $account->shop_name)
                                     <span>{{ $account->seller_name }}</span>
-                                    <span class="text-outline-variant">Ã¢â‚¬Â¢</span>
+                                    <span class="text-outline-variant">|</span>
                                 @endif
                                 {{-- Status badge --}}
                                 @if($isActive)
@@ -158,12 +158,12 @@
                                 @endif
 
                                 @if($account->user)
-                                    <span class="text-outline-variant">Ã¢â‚¬Â¢</span>
-                                    <span>Oleh: {{ $account->user->name }}</span>
+                                    <span class="text-outline-variant">|</span>
+                                    <span>Ditambahkan Oleh: {{ $account->user->name }}</span>
                                 @endif
 
                                 @if($channelCode === 'TIKTOK')
-                                    <span class="text-outline-variant">Ã¢â‚¬Â¢</span>
+                                    <span class="text-outline-variant">|</span>
                                     <span>{{ $account->produk_count ?? $account->produk()->count() }} produk</span>
                                 @endif
                             </div>

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Detail Pesanan #' . Str::limit($order->order_id, 12))
-@section('breadcrumb', 'Pesanan â€” Detail Order')
+@section('breadcrumb', 'Pesanan - Detail Order')
 
 @section('content')
 
@@ -44,12 +44,12 @@
                             <p class="truncate font-medium text-on-surface">{{ $item->product_name ?: 'Produk' }}</p>
                             <p class="mt-0.5 text-xs text-on-surface-variant">
                                 SKU: {{ $item->seller_sku ?: $item->sku_id }}
-                                @if($item->sku_name) â€” {{ $item->sku_name }} @endif
+                                @if($item->sku_name) {{ $item->sku_name }} @endif
                             </p>
                         </div>
                         <div class="shrink-0 text-right">
-                            <p class="text-sm font-semibold text-on-surface">Rp {{ number_format($item->sale_price, 0, ',', '.') }}</p>
-                            <p class="text-xs text-on-surface-variant">Ã— {{ $item->quantity }}</p>
+                            <p class="text-sm font-semibold text-on-surface">Rp {{ number_format($item->original_price, 0, ',', '.') }}</p>
+                            <p class="text-xs text-on-surface-variant"> Qty {{ $item->quantity }}</p>
                         </div>
                         <div class="w-28 shrink-0 text-right">
                             <p class="text-sm font-bold text-on-surface">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</p>
