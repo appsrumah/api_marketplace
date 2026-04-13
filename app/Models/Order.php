@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\OrderItem;
+use Carbon\Carbon;
 
 class Order extends Model
 {
@@ -53,26 +54,23 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'total_amount'             => 'decimal:2',
-            'subtotal_amount'          => 'decimal:2',
-            'shipping_fee'             => 'decimal:2',
-            'seller_discount'          => 'decimal:2',
-            'platform_discount'        => 'decimal:2',
-            'is_cod'                   => 'boolean',
-            'is_buyer_request_cancel'  => 'boolean',
-            'is_on_hold_order'         => 'boolean',
-            'is_replacement_order'     => 'boolean',
-            'is_synced_to_pos'         => 'boolean',
-            'paid_at'                  => 'datetime',
-            'shipped_at'               => 'datetime',
-            'delivered_at'             => 'datetime',
-            'completed_at'             => 'datetime',
-            'cancelled_at'             => 'datetime',
-            'synced_to_pos_at'         => 'datetime',
-            'tiktok_create_time'       => 'integer',
-            'tiktok_update_time'       => 'integer',
-            'raw_data'                 => 'array',
-            'shipping_address'         => 'array',
+            'account_id' => 'integer',
+            'channel_id' => 'integer',
+            'warehouse_id' => 'integer',
+            'total_amount' => 'decimal:2',
+            'subtotal_amount' => 'decimal:2',
+            'shipping_fee' => 'decimal:2',
+            'seller_discount' => 'decimal:2',
+            'platform_discount' => 'decimal:2',
+            'paid_at' => 'datetime',
+            'shipped_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'tiktok_create_time' => 'integer',
+            'tiktok_update_time' => 'integer',
+            'is_synced_to_pos' => 'boolean',
+            'is_cod' => 'boolean',
         ];
     }
 
@@ -89,8 +87,8 @@ class Order extends Model
     const STATUS_CANCELLED          = 'CANCELLED';
 
     const STATUS_LABELS = [
-        'UNPAID'              => 'Belum Bayar',
-        'ON_HOLD'             => 'Ditahan',
+        'UNPAID'              => 'Belum diBayar',
+        'ON_HOLD'             => 'Pesanan Baru',
         'AWAITING_SHIPMENT'   => 'Siap Kirim',
         'PARTIALLY_SHIPPING'  => 'Sebagian Dikirim',
         'AWAITING_COLLECTION' => 'Menunggu Pickup',
@@ -146,11 +144,18 @@ class Order extends Model
         return self::STATUS_COLORS[$this->order_status] ?? 'bg-slate-100 text-slate-600';
     }
 
-    public function getCreatedAtTiktokAttribute(): ?\Carbon\Carbon
+    /**
+     * Accessor: created_at from TikTok (converted to app timezone).
+     */
+    public function getCreatedAtTiktokAttribute(): ?Carbon
     {
-        return $this->tiktok_create_time
-            ? \Carbon\Carbon::createFromTimestamp($this->tiktok_create_time)
-            : null;
+        $ts = $this->tiktok_create_time ?? null;
+        if (empty($ts)) return null;
+        $ts = (int) $ts;
+        if ($ts > 1000000000000) {
+            $ts = (int) floor($ts / 1000);
+        }
+        return Carbon::createFromTimestampUTC($ts)->setTimezone(config('app.timezone') ?: date_default_timezone_get());
     }
 
     // ─── Scopes ───────────────────────────────────────────────────────────

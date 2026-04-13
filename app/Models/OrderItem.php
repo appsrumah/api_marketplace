@@ -9,30 +9,35 @@ class OrderItem extends Model
 {
     protected $fillable = [
         'order_id',
+        'tiktok_order_id',
         'product_id',
         'product_name',
         'sku_id',
         'sku_name',
         'seller_sku',
+        'product_image',
         'quantity',
         'original_price',
         'sale_price',
         'platform_discount',
         'seller_discount',
-        'item_tax',
+        'subtotal',
+        'item_status',
+        'is_gift',
         'currency',
-        'product_image',
     ];
 
     protected function casts(): array
     {
         return [
-            'quantity'          => 'integer',
-            'original_price'   => 'decimal:2',
-            'sale_price'       => 'decimal:2',
+            'order_id' => 'integer',
+            'quantity' => 'integer',
+            'original_price' => 'decimal:2',
+            'sale_price' => 'decimal:2',
             'platform_discount' => 'decimal:2',
-            'seller_discount'  => 'decimal:2',
-            'item_tax'         => 'decimal:2',
+            'seller_discount' => 'decimal:2',
+            'subtotal' => 'decimal:2',
+            'is_gift' => 'boolean',
         ];
     }
 

@@ -10,6 +10,7 @@ use App\Services\PosOrderService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
@@ -79,6 +80,137 @@ class OrderController extends Controller
             ->get(['id', 'shop_name', 'seller_name']);
 
         return view('orders.index', compact('orders', 'stats', 'accounts'));
+    }
+
+    /**
+     * Map external API status/display_status values to internal Order::STATUS_* constants.
+     */
+    private function mapOrderStatus(?string $status): ?string
+    {
+        if (empty($status)) {
+            return null;
+        }
+
+        $s = strtoupper(trim($status));
+
+        return match ($s) {
+            'UNPAID', 'PENDING_PAYMENT' => Order::STATUS_UNPAID,
+            'ON_HOLD', 'HOLD' => Order::STATUS_ON_HOLD,
+            'AWAITING_SHIPMENT', 'AWAITING_DELIVERY', 'READY_TO_SHIP' => Order::STATUS_AWAITING_SHIPMENT,
+            'PARTIALLY_SHIPPING' => Order::STATUS_PARTIALLY_SHIPPING,
+            'AWAITING_COLLECTION' => Order::STATUS_AWAITING_COLLECTION,
+            'IN_TRANSIT', 'SHIPPING' => Order::STATUS_IN_TRANSIT,
+            'DELIVERED' => Order::STATUS_DELIVERED,
+            'COMPLETED' => Order::STATUS_COMPLETED,
+            'CANCELLED', 'CANCELED' => Order::STATUS_CANCELLED,
+            default => $s,
+        };
+    }
+
+    /**
+     * Save single API order payload to local DB (create or update).
+     *
+     * Returns local Order id (or 0 on failure).
+     */
+    private function saveOrder(AccountShopTiktok $account, array $apiOrder): int
+    {
+        $orderId = $apiOrder['id'] ?? $apiOrder['order_id'] ?? null;
+        if (!$orderId) return 0;
+
+        $payment   = $apiOrder['payment'] ?? [];
+        $shipping  = $apiOrder['shipping'] ?? [];
+        $buyer     = $apiOrder['buyer'] ?? [];
+        $recipient = $apiOrder['recipient_address'] ?? ($shipping['recipient_address'] ?? []);
+        $lineItems = $apiOrder['line_items'] ?? $apiOrder['items'] ?? [];
+
+        // values normalized / fallbacks
+        $rootStatus = $apiOrder['status'] ?? null;
+        if (empty($rootStatus) && !empty($lineItems) && isset($lineItems[0]['display_status'])) {
+            $rootStatus = $lineItems[0]['display_status'];
+        }
+
+        $orderStatus = $this->mapOrderStatus($rootStatus);
+
+        // data that should always be updated on sync
+        $updateData = [
+            'order_status'       => $orderStatus,
+            'tracking_number'    => $apiOrder['tracking_number'] ?? $shipping['tracking_number'] ?? ($lineItems[0]['tracking_number'] ?? null),
+            'shipping_provider'  => $apiOrder['shipping_provider'] ?? $shipping['shipping_provider_name'] ?? ($lineItems[0]['shipping_provider_name'] ?? null),
+            'payment_status'     => $apiOrder['payment_status'] ?? null,
+            'tiktok_update_time' => $apiOrder['update_time'] ?? null,
+            'raw_data'           => $apiOrder,
+        ];
+
+        // data set only on create
+        $createOnly = [
+            'channel_id'           => $account->channel_id ?? null,
+            'warehouse_id'         => $account->warehouse_id ?? null,
+            'platform'             => 'TIKTOK',
+            'buyer_user_id'        => $apiOrder['buyer_uid'] ?? $buyer['user_id'] ?? null,
+            'buyer_name'           => $recipient['name'] ?? $buyer['buyer_name'] ?? null,
+            'buyer_phone'          => $recipient['phone_number'] ?? $buyer['phone_number'] ?? null,
+            'buyer_email'          => $apiOrder['buyer_email'] ?? null,
+            'shipping_address'     => !empty($recipient) ? $recipient : ($shipping['recipient_address'] ?? null),
+            'total_amount'         => isset($payment['total_amount']) ? (float) $payment['total_amount'] : (float) ($payment['original_total_product_price'] ?? 0),
+            'subtotal_amount'      => isset($payment['sub_total']) ? (float) $payment['sub_total'] : (float) ($payment['original_total_product_price'] ?? 0),
+            'shipping_fee'         => isset($payment['shipping_fee']) ? (float) $payment['shipping_fee'] : (float) ($payment['original_shipping_fee'] ?? 0),
+            'platform_discount'    => isset($payment['platform_discount']) ? (float) $payment['platform_discount'] : (float) ($payment['payment_platform_discount'] ?? 0),
+            'payment_method'       => $payment['payment_method_name'] ?? $apiOrder['payment_method_name'] ?? null,
+            'is_cod'               => (bool) ($apiOrder['is_cod'] ?? false),
+            'tiktok_create_time'   => $apiOrder['create_time'] ?? null,
+        ];
+
+        // timestamps converted
+        $maybeTimestamps = [
+            'paid_at'      => $this->toCarbonFromApiTimestamp($apiOrder['paid_time'] ?? null),
+            'shipped_at'   => $this->toCarbonFromApiTimestamp($apiOrder['rts_time'] ?? $apiOrder['rts_time'] ?? null),
+            'delivered_at' => $this->toCarbonFromApiTimestamp($apiOrder['delivery_time'] ?? null),
+            'completed_at' => $this->toCarbonFromApiTimestamp($apiOrder['complete_time'] ?? null),
+            'cancelled_at' => $this->toCarbonFromApiTimestamp($apiOrder['cancel_time'] ?? null),
+        ];
+
+        // find existing
+        $existing = Order::where('order_id', $orderId)->where('account_id', $account->id)->first();
+
+        if ($existing) {
+            $existing->update(array_merge($updateData, $maybeTimestamps));
+            $order = $existing;
+        } else {
+            $order = Order::create(array_merge(
+                ['order_id' => $orderId, 'account_id' => $account->id],
+                $createOnly,
+                $updateData,
+                $maybeTimestamps
+            ));
+        }
+
+        // items (use line_items). Prefer original_price for storage; cast numeric.
+        foreach ($lineItems as $li) {
+            $sku = $li['seller_sku'] ?? $li['sku_id'] ?? null;
+            if (!$sku) continue;
+
+            OrderItem::updateOrCreate(
+                [
+                    'order_id' => $order->id,
+                    'seller_sku' => $sku,
+                ],
+                [
+                    'product_id'       => $li['product_id'] ?? null,
+                    'product_name'     => $li['product_name'] ?? null,
+                    'sku_id'           => $li['sku_id'] ?? null,
+                    'sku_name'         => $li['sku_name'] ?? null,
+                    'quantity'         => isset($li['quantity']) ? (int)$li['quantity'] : 1,
+                    'original_price'   => isset($li['original_price']) ? (float)$li['original_price'] : (float)($li['sale_price'] ?? 0),
+                    'sale_price'       => isset($li['sale_price']) ? (float)$li['sale_price'] : null,
+                    'platform_discount' => isset($li['platform_discount']) ? (float)$li['platform_discount'] : 0,
+                    'seller_discount'  => isset($li['seller_discount']) ? (float)$li['seller_discount'] : 0,
+                    'currency'         => $li['currency'] ?? $payment['currency'] ?? 'IDR',
+                    'product_image'    => $li['sku_image'] ?? null,
+                ]
+            );
+        }
+
+        return $order->id ?? 0;
     }
 
     /* ===================================================================
@@ -420,121 +552,6 @@ class OrderController extends Controller
     }
 
     /* ===================================================================
-     *  PRIVATE: Save single order + items to database
-     * =================================================================== */
-    private function saveOrder(AccountShopTiktok $account, array $apiOrder): int
-    {
-        $orderId = $apiOrder['id'] ?? null;
-        if (!$orderId) {
-            return 0;
-        }
-
-        $payment   = $apiOrder['payment'] ?? [];
-        $shipping  = $apiOrder['shipping'] ?? [];
-        $buyer     = $apiOrder['buyer'] ?? [];
-        // TikTok API v202507: recipient_address is at order root level
-        $recipient = $apiOrder['recipient_address'] ?? $shipping['recipient_address'] ?? [];
-
-        $order = Order::updateOrCreate(
-            [
-                'order_id'   => $orderId,
-                'account_id' => $account->id,
-            ],
-            [
-                'channel_id'              => $account->channel_id,
-                'warehouse_id'            => $account->warehouse_id,
-                'platform'                => 'TIKTOK',
-                'order_status'            => $apiOrder['status'] ?? null,
-                // v202507: buyer_uid at root; v202309: buyer.user_id
-                'buyer_user_id'           => $apiOrder['buyer_uid'] ?? $buyer['user_id'] ?? $buyer['buyer_uid'] ?? null,
-                // v202507: recipient_address.name; v202309: buyer.first_name
-                'buyer_name'              => ($recipient['name'] ?? null)
-                    ?: ($buyer['buyer_name'] ?? $buyer['first_name'] ?? null),
-                'buyer_phone'             => ($recipient['phone_number'] ?? null)
-                    ?: ($buyer['phone_number'] ?? null),
-                'buyer_message'           => $apiOrder['buyer_message'] ?? null,
-                'shipping_type'           => $shipping['shipping_type'] ?? null,
-                'shipping_provider'       => $shipping['shipping_provider_name'] ?? null,
-                'tracking_number'         => $shipping['tracking_number'] ?? null,
-                'shipping_address'        => !empty($recipient) ? $recipient : ($shipping['recipient_address'] ?? null),
-                'total_amount'            => $payment['total_amount'] ?? 0,
-                'subtotal_amount'         => $payment['sub_total'] ?? 0,
-                'shipping_fee'            => $payment['shipping_fee'] ?? 0,
-                'seller_discount'         => $payment['seller_discount'] ?? 0,
-                'platform_discount'       => $payment['platform_discount'] ?? 0,
-                'currency'                => $payment['currency'] ?? 'IDR',
-                'payment_method'          => $payment['payment_method_name'] ?? null,
-                'payment_status'          => $apiOrder['payment_status'] ?? null,
-                'is_cod'                  => ($apiOrder['is_cod'] ?? false),
-                'is_buyer_request_cancel' => ($apiOrder['is_buyer_request_cancel'] ?? false),
-                'is_on_hold_order'        => ($apiOrder['is_on_hold_order'] ?? false),
-                'is_replacement_order'    => ($apiOrder['is_replacement_order'] ?? false),
-                'paid_at'                 => isset($apiOrder['paid_time']) ? \Carbon\Carbon::createFromTimestamp($apiOrder['paid_time']) : null,
-                'shipped_at'              => isset($apiOrder['rts_time']) ? \Carbon\Carbon::createFromTimestamp($apiOrder['rts_time']) : null,
-                'delivered_at'            => isset($apiOrder['delivery_time']) ? \Carbon\Carbon::createFromTimestamp($apiOrder['delivery_time']) : null,
-                'completed_at'            => isset($apiOrder['complete_time']) ? \Carbon\Carbon::createFromTimestamp($apiOrder['complete_time']) : null,
-                'cancelled_at'            => isset($apiOrder['cancel_time']) ? \Carbon\Carbon::createFromTimestamp($apiOrder['cancel_time']) : null,
-                'cancel_reason'           => $apiOrder['cancel_reason'] ?? null,
-                'tiktok_create_time'      => $apiOrder['create_time'] ?? null,
-                'tiktok_update_time'      => $apiOrder['update_time'] ?? null,
-                'raw_data'                => $apiOrder,
-            ]
-        );
-
-        // Save order items
-        // CATATAN: TikTok API mengembalikan 1 line_item PER UNIT (bukan per SKU).
-        // Contoh: order 1 produk qty 20 → 20 baris line_items dengan sku_id sama, masing-masing qty=1.
-        // Solusi: group by sku_id dulu, jumlahkan qty-nya, baru simpan.
-        $lineItems = $apiOrder['line_items'] ?? $apiOrder['item_list'] ?? [];
-
-        $groupedItems = [];
-        foreach ($lineItems as $item) {
-            $skuId = $item['sku_id'] ?? null;
-
-            // Jika tidak ada sku_id, fallback ke id (line_item_id) — simpan as-is
-            if ($skuId === null) {
-                $skuId = $item['id'] ?? uniqid();
-                $groupedItems[$skuId] = $item;
-                $groupedItems[$skuId]['quantity'] = (int) ($item['quantity'] ?? 1);
-                continue;
-            }
-
-            if (!isset($groupedItems[$skuId])) {
-                $groupedItems[$skuId]             = $item;
-                $groupedItems[$skuId]['quantity'] = (int) ($item['quantity'] ?? 1);
-            } else {
-                // Akumulasi qty untuk SKU yang sama (TikTok split per unit)
-                $groupedItems[$skuId]['quantity'] += (int) ($item['quantity'] ?? 1);
-            }
-        }
-
-        foreach ($groupedItems as $skuId => $item) {
-            OrderItem::updateOrCreate(
-                [
-                    'order_id' => $order->id,
-                    'sku_id'   => $skuId,
-                ],
-                [
-                    'product_id'        => $item['product_id'] ?? null,
-                    'product_name'      => $item['product_name'] ?? null,
-                    'sku_name'          => $item['sku_name'] ?? null,
-                    'seller_sku'        => $item['seller_sku'] ?? null,
-                    'quantity'          => $item['quantity'],
-                    'original_price'    => $item['original_price'] ?? 0,
-                    'sale_price'        => $item['sale_price'] ?? 0,
-                    'platform_discount' => $item['platform_discount'] ?? 0,
-                    'seller_discount'   => $item['seller_discount'] ?? 0,
-                    'item_tax'          => $item['item_tax'] ?? 0,
-                    'currency'          => $item['currency'] ?? 'IDR',
-                    'product_image'     => $item['product_image']['url'] ?? $item['sku_image'] ?? null,
-                ]
-            );
-        }
-
-        return 1;
-    }
-
-    /* ===================================================================
      *  PRIVATE: Ensure fresh access token (refresh if expired)
      * =================================================================== */
     private function ensureFreshToken(AccountShopTiktok $account): string
@@ -556,5 +573,16 @@ class OrderController extends Controller
         }
 
         return $account->access_token;
+    }
+
+    private function toCarbonFromApiTimestamp($ts): ?Carbon
+    {
+        if (empty($ts)) return null;
+        $ts = (int) $ts;
+        // normalize ms -> s
+        if ($ts > 1000000000000) {
+            $ts = (int) floor($ts / 1000);
+        }
+        return Carbon::createFromTimestampUTC($ts)->setTimezone(config('app.timezone') ?: date_default_timezone_get());
     }
 }
