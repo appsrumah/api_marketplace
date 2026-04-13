@@ -155,7 +155,7 @@ class OrderController extends Controller
         $createOnly = [
             'channel_id'         => $account->channel_id ?? null,
             'warehouse_id'       => $account->warehouse_id ?? null,
-            'platform'           => 'TIKTOK',
+            'platform'           => $apiOrder['commerce_platform'] ?? null,
             'buyer_user_id'      => $apiOrder['buyer_uid'] ?? $buyer['user_id'] ?? null,
             'buyer_email'        => $apiOrder['buyer_email'] ?? null,
             'tiktok_create_time' => $apiOrder['create_time'] ?? null,
