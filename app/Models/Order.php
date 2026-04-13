@@ -67,6 +67,7 @@ class Order extends Model
             'delivered_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'synced_to_pos_at' => 'datetime',
             'tiktok_create_time' => 'integer',
             'tiktok_update_time' => 'integer',
             'is_synced_to_pos' => 'boolean',
