@@ -12,6 +12,7 @@ use App\Http\Controllers\ShopeeOrderController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TikTokWebhookController;
 use App\Http\Controllers\TiktokAuthController;
+use App\Http\Controllers\UnifiedOrderController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +66,9 @@ Route::middleware(['auth', 'check.active'])->group(function () {
     /* ---------- Dashboard ---------- */
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
+    /* ---------- Pesanan Unified (TikTok + Shopee gabungan) ---------- */
+    Route::get('/pesanan', [UnifiedOrderController::class, 'index'])->name('unified.orders.index');
+
     /* ---------- Profil Pengguna ---------- */
     Route::prefix('profile')->name('profile.')->group(function () {
         Route::get('/',             [ProfileController::class, 'edit'])->name('edit');
@@ -89,6 +93,7 @@ Route::middleware(['auth', 'check.active'])->group(function () {
         Route::get('/callback',                          [ShopeeAuthController::class, 'callback'])->name('callback');
         Route::post('/accounts/{account}/refresh-token', [ShopeeAuthController::class, 'refreshToken'])->name('refresh-token');
         Route::delete('/accounts/{account}/disconnect',  [ShopeeAuthController::class, 'disconnect'])->name('disconnect');
+        Route::post('/accounts/{account}/sync-products', [ShopeeAuthController::class, 'syncProducts'])->name('sync-products');
     });
 
     /* ---------- Shopee Orders ---------- */

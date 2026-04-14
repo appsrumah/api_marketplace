@@ -14,13 +14,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // KONFIGURASI — Sesuaikan sebelum upload
 // ─────────────────────────────────────────────────────────────────────────────
-define('MIGRATION_SECRET', getenv('MIGRATION_SECRET') ?: 'GANTI_INI_DENGAN_SECRET_ANDA');
-define('DB_HOST',     getenv('DB_HOST')     ?: '127.0.0.1');
+define('MIGRATION_SECRET', getenv('MIGRATION_SECRET') ?: '6e59701e9553204e51601f08352f9b29b84fd743');
+define('DB_HOST',     getenv('DB_HOST')     ?: 'localhost');
 define('DB_PORT',     getenv('DB_PORT')     ?: '3306');
-define('DB_NAME',     getenv('DB_DATABASE') ?: 'your_db_name');
-define('DB_USER',     getenv('DB_USERNAME') ?: 'your_db_user');
-define('DB_PASS',     getenv('DB_PASSWORD') ?: 'your_db_password');
+define('DB_NAME',     getenv('DB_DATABASE') ?: 'olen6374_tiktok-api');
+define('DB_USER',     getenv('DB_USERNAME') ?: 'olen6374_tiktok_api');
+define('DB_PASS',     getenv('DB_PASSWORD') ?: 'Koperasi1974');
 define('DB_CHARSET',  'utf8mb4');
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROTEKSI AKSES
@@ -746,6 +747,50 @@ SQL;
     }
 } else {
     out('Tabel shopee_order_items sudah ada — dilewati.', 'skip', $isCli);
+    $stats['skipped']++;
+}
+
+if (!$isCli) echo '</div></div>';
+
+// ═══════════════════════════════════════════════════════════════
+// MIGRATION 7: ALTER produk_saya — DROP foreign key untuk multi-platform
+// ═══════════════════════════════════════════════════════════════
+if (!$isCli) echo '<div class="card"><h2>📋 ALTER: produk_saya (Drop FK untuk multi-platform)</h2><div class="log">';
+else echo "\n--- [7/7] ALTER produk_saya ---\n";
+
+if (tableExists($pdo, 'produk_saya')) {
+    // Check if FK still exists
+    $fkCheck = $pdo->query("
+        SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'produk_saya'
+          AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+          AND CONSTRAINT_NAME LIKE '%account_id%'
+        LIMIT 1
+    ")->fetch();
+
+    if ($fkCheck) {
+        $fkName = $fkCheck['CONSTRAINT_NAME'];
+        try {
+            $pdo->exec("ALTER TABLE `produk_saya` DROP FOREIGN KEY `{$fkName}`");
+            out("FK '{$fkName}' berhasil di-drop dari produk_saya — sekarang multi-platform.", 'ok', $isCli);
+            $stats['altered']++;
+        } catch (PDOException $e) {
+            // Ignore if already gone
+            if (str_contains($e->getMessage(), 'check that it exists')) {
+                out("FK sudah tidak ada — dilewati.", 'skip', $isCli);
+                $stats['skipped']++;
+            } else {
+                out('GAGAL drop FK produk_saya: ' . $e->getMessage(), 'error', $isCli);
+                $stats['errors']++;
+            }
+        }
+    } else {
+        out('FK account_id di produk_saya sudah tidak ada — dilewati.', 'skip', $isCli);
+        $stats['skipped']++;
+    }
+} else {
+    out('Tabel produk_saya belum ada — dilewati.', 'skip', $isCli);
     $stats['skipped']++;
 }
 

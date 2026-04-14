@@ -35,9 +35,30 @@ class ProdukSaya extends Model
 
     /* ---------- Relationships ---------- */
 
+    /**
+     * Polymorphic-style account relationship:
+     * - platform=TIKTOK/TOKOPEDIA → AccountShopTiktok
+     * - platform=SHOPEE           → AccountShopShopee
+     */
     public function account(): BelongsTo
     {
+        if ($this->platform === 'SHOPEE') {
+            return $this->belongsTo(AccountShopShopee::class, 'account_id');
+        }
+
         return $this->belongsTo(AccountShopTiktok::class, 'account_id');
+    }
+
+    /** TikTok account (explicit) */
+    public function tiktokAccount(): BelongsTo
+    {
+        return $this->belongsTo(AccountShopTiktok::class, 'account_id');
+    }
+
+    /** Shopee account (explicit) */
+    public function shopeeAccount(): BelongsTo
+    {
+        return $this->belongsTo(AccountShopShopee::class, 'account_id');
     }
 
     /** Channel marketplace langsung (denormalized dari account.channel_id) */
@@ -50,6 +71,46 @@ class ProdukSaya extends Model
     public function detail(): HasOne
     {
         return $this->hasOne(ProductDetail::class, 'product_id', 'product_id');
+    }
+
+    /* ---------- Computed ---------- */
+
+    /** Nama toko (works for both platforms) */
+    public function getAccountNameAttribute(): string
+    {
+        if ($this->relationLoaded('tiktokAccount') && $this->tiktokAccount) {
+            return $this->tiktokAccount->shop_name ?: $this->tiktokAccount->seller_name ?: '-';
+        }
+        if ($this->relationLoaded('shopeeAccount') && $this->shopeeAccount) {
+            return $this->shopeeAccount->seller_name ?: '-';
+        }
+        // Fallback: lazy load
+        if ($this->platform === 'SHOPEE') {
+            return $this->shopeeAccount?->seller_name ?: '-';
+        }
+        return $this->tiktokAccount?->shop_name ?: $this->tiktokAccount?->seller_name ?: '-';
+    }
+
+    /** Platform label for display */
+    public function getPlatformLabelAttribute(): string
+    {
+        return match ($this->platform) {
+            'TIKTOK'    => 'TikTok',
+            'TOKOPEDIA' => 'Tokopedia',
+            'SHOPEE'    => 'Shopee',
+            default     => $this->platform ?? '-',
+        };
+    }
+
+    /** Platform color for badges */
+    public function getPlatformColorAttribute(): string
+    {
+        return match ($this->platform) {
+            'TIKTOK'    => 'bg-slate-800 text-white',
+            'TOKOPEDIA' => 'bg-green-600 text-white',
+            'SHOPEE'    => 'bg-orange-500 text-white',
+            default     => 'bg-surface-container text-on-surface',
+        };
     }
 
     /* ---------- Scopes ---------- */

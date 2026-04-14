@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SyncAccountInventoryJob;
+use App\Jobs\SyncShopeeInventoryJob;
+use App\Models\AccountShopShopee;
 use App\Models\AccountShopTiktok;
 use App\Models\ProdukSaya;
 use App\Services\PosStockService;
 use App\Services\ProductSyncService;
+use App\Services\ShopeeProductSyncService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +22,7 @@ class StockController extends Controller
         private PosStockService   $posStock,
         private TiktokApiService  $tiktokService,
         private ProductSyncService $productSync,
+        private ShopeeProductSyncService $shopeeProductSync,
     ) {}
 
     /* ================================================================
@@ -264,7 +268,8 @@ class StockController extends Controller
      * ================================================================ */
     public function dashboard(): \Illuminate\View\View
     {
-        $accounts = AccountShopTiktok::forUser()->get()->map(function ($account) {
+        // ── TikTok accounts ──────────────────────────────────────────
+        $tiktokAccounts = AccountShopTiktok::forUser()->get()->map(function ($account) {
             $base = ProdukSaya::where('account_id', $account->id)
                 ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
                 ->where('product_status', 'ACTIVATE');
@@ -283,6 +288,7 @@ class StockController extends Controller
             return (object) [
                 'id'                => $account->id,
                 'seller_name'       => $account->seller_name,
+                'platform'          => 'TIKTOK',
                 'status'            => $account->status,
                 'id_outlet'         => $account->id_outlet,
                 'token_expired'     => $account->isTokenExpired(),
@@ -292,10 +298,46 @@ class StockController extends Controller
             ];
         });
 
+        // ── Shopee accounts ──────────────────────────────────────────
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        $shopeeAccounts = AccountShopShopee::when(
+            !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
+        )->where('status', 'active')->get()->map(function ($account) {
+            $base = ProdukSaya::where('account_id', $account->id)
+                ->where('platform', 'SHOPEE')
+                ->where('product_status', 'ACTIVATE');
+
+            $siapSync = (clone $base)
+                ->whereNotNull('seller_sku')
+                ->where('seller_sku', '!=', '')
+                ->count();
+
+            $tanpaSku = (clone $base)
+                ->where(function ($q) {
+                    $q->whereNull('seller_sku')->orWhere('seller_sku', '');
+                })
+                ->count();
+
+            return (object) [
+                'id'                => $account->id,
+                'seller_name'       => $account->seller_name,
+                'platform'          => 'SHOPEE',
+                'status'            => $account->status,
+                'id_outlet'         => $account->id_outlet,
+                'token_expired'     => $account->isTokenExpired(),
+                'last_update_stock' => $account->last_update_stock,
+                'siap_sync'         => $siapSync,
+                'tanpa_sku'         => $tanpaSku,
+            ];
+        });
+
+        $accounts = $tiktokAccounts->merge($shopeeAccounts);
+
         $jobsPending = 0;
         try {
             $jobsPending = \Illuminate\Support\Facades\DB::table('jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->count();
         } catch (\Throwable $e) { /* tabel jobs mungkin belum ada */
         }
@@ -303,10 +345,22 @@ class StockController extends Controller
         $totalSiapSync = $accounts->sum('siap_sync');
         $totalTanpaSku = $accounts->sum('tanpa_sku');
 
-        $userAccountIds = AccountShopTiktok::forUser()->pluck('id');
-        $produkSiapSync = ProdukSaya::with('account')
-            ->whereIn('account_id', $userAccountIds)
-            ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
+        // ── Product list for dashboard (all platforms) ───────────────
+        $tiktokAccountIds = AccountShopTiktok::forUser()->pluck('id');
+        $shopeeAccountIds = AccountShopShopee::when(
+            !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
+        )->pluck('id');
+
+        $produkSiapSync = ProdukSaya::query()
+            ->where(function ($q) use ($tiktokAccountIds, $shopeeAccountIds) {
+                $q->where(function ($sub) use ($tiktokAccountIds) {
+                    $sub->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
+                        ->whereIn('account_id', $tiktokAccountIds);
+                })->orWhere(function ($sub) use ($shopeeAccountIds) {
+                    $sub->where('platform', 'SHOPEE')
+                        ->whereIn('account_id', $shopeeAccountIds);
+                });
+            })
             ->where('product_status', 'ACTIVATE')
             ->whereNotNull('seller_sku')
             ->where('seller_sku', '!=', '')
@@ -335,26 +389,23 @@ class StockController extends Controller
      * ================================================================ */
     public function runQueueWeb(Request $request): JsonResponse
     {
-        // Lepas stuck jobs: job sudah reserved > 5 menit tapi proses worker-nya mati
-        // (misal: web HTTP timeout, server kill, dsb.)
+        // Lepas stuck jobs from both queues
         $released = 0;
         try {
             $released = DB::table('jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->whereNotNull('reserved_at')
                 ->where('reserved_at', '<', now()->subMinutes(5)->timestamp)
                 ->update(['reserved_at' => null]);
         } catch (\Throwable $e) {
-            // tabel jobs belum ada
         }
 
-        // Hitung status antrian saat ini
         $available = $delayed = $reserved = 0;
         try {
             $now       = now()->timestamp;
-            $available = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNull('reserved_at')->where('available_at', '<=', $now)->count();
-            $delayed   = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNull('reserved_at')->where('available_at', '>', $now)->count();
-            $reserved  = DB::table('jobs')->where('queue', 'tiktok-inventory')->whereNotNull('reserved_at')->count();
+            $available = DB::table('jobs')->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])->whereNull('reserved_at')->where('available_at', '<=', $now)->count();
+            $delayed   = DB::table('jobs')->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])->whereNull('reserved_at')->where('available_at', '>', $now)->count();
+            $reserved  = DB::table('jobs')->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])->whereNotNull('reserved_at')->count();
         } catch (\Throwable $e) {
         }
 
@@ -363,7 +414,7 @@ class StockController extends Controller
         $info = $released > 0
             ? "{$released} job stuck berhasil dilepas. Cron worker akan memprosesnya dalam ~1 menit."
             : ($total > 0
-                ? "Antrian: {$available} siap · {$reserved} sedang jalan · {$delayed} menunggu retry. Cron worker memproses otomatis."
+                ? "Antrian: {$available} siap · {$reserved} sedang jalan · {$delayed} menunggu retry."
                 : 'Antrian kosong. Klik "Sync Semua Akun" untuk mulai sync stok.');
 
         return response()->json([
@@ -387,25 +438,42 @@ class StockController extends Controller
         @set_time_limit(300);
 
         try {
-            $accounts = AccountShopTiktok::forUser()->whereNotNull('id_outlet')->get();
             $queued   = 0;
             $skipped  = [];
             $detail   = [];
 
-            foreach ($accounts as $account) {
-                // ✅ BATCH JOB: 1 job per akun (bukan 1 job per SKU)
-                // SyncAccountInventoryJob menangani seluruh SKU akun ini dalam 1 job:
-                //   - getStockBulk() → 1 query POS untuk semua SKU
-                //   - loop updateInventory() per SKU dengan rate limiting
+            // ── TikTok accounts ──────────────────────────────────────
+            $tiktokAccounts = AccountShopTiktok::forUser()->whereNotNull('id_outlet')->get();
+            foreach ($tiktokAccounts as $account) {
                 SyncAccountInventoryJob::dispatch(
                     accountId: $account->id,
                 )->onQueue('tiktok-inventory');
 
                 $queued++;
                 $detail[] = [
+                    'platform' => 'TIKTOK',
                     'account'  => $account->seller_name,
                     'queued'   => 1,
-                    'note'     => '1 batch job (bukan per SKU)',
+                ];
+            }
+
+            // ── Shopee accounts ──────────────────────────────────────
+            /** @var \App\Models\User $user */
+            $user = auth()->user();
+            $shopeeAccounts = AccountShopShopee::when(
+                !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
+            )->where('status', 'active')->whereNotNull('id_outlet')->get();
+
+            foreach ($shopeeAccounts as $account) {
+                SyncShopeeInventoryJob::dispatch(
+                    accountId: $account->id,
+                )->onQueue('shopee-inventory');
+
+                $queued++;
+                $detail[] = [
+                    'platform' => 'SHOPEE',
+                    'account'  => $account->seller_name,
+                    'queued'   => 1,
                 ];
             }
 
@@ -414,7 +482,7 @@ class StockController extends Controller
                 'queued'  => $queued,
                 'skipped' => $skipped,
                 'detail'  => $detail,
-                'info'    => 'Batch jobs masuk ke antrian. 1 job per akun = lebih efisien (getStockBulk + push).',
+                'info'    => 'Batch jobs masuk ke antrian. TikTok + Shopee.',
             ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             return response()->json([
@@ -494,33 +562,48 @@ class StockController extends Controller
         $syncProducts      = filter_var($request->query('sync_products', false), FILTER_VALIDATE_BOOLEAN);
         $productSyncResult = [];
 
-        // ── STEP 1 (opsional): Sync daftar produk dari TikTok API ────────────
-        // Aktifkan dengan ?sync_products=1
-        // Default: DILEWATI agar siklus 5 menit tetap ringan
+        // ── STEP 1 (opsional): Sync daftar produk dari API ───────────────
         if ($syncProducts) {
-            $accounts = AccountShopTiktok::where('status', 'active')
+            // TikTok product sync
+            $tiktokAccounts = AccountShopTiktok::where('status', 'active')
                 ->whereNotNull('shop_cipher')
                 ->whereNotNull('access_token')
                 ->get();
 
-            foreach ($accounts as $account) {
+            foreach ($tiktokAccounts as $account) {
                 $r = $this->productSync->syncForAccount($account);
                 $productSyncResult[] = [
-                    'account' => $account->shop_name ?? $account->seller_name,
-                    'saved'   => $r['saved'],
-                    'pages'   => $r['pages'],
-                    'error'   => $r['error'],
+                    'platform' => 'TIKTOK',
+                    'account'  => $account->shop_name ?? $account->seller_name,
+                    'saved'    => $r['saved'],
+                    'pages'    => $r['pages'],
+                    'error'    => $r['error'],
                 ];
-                usleep(300_000); // 300ms rate limiting antar akun
+                usleep(300_000);
+            }
+
+            // Shopee product sync
+            $shopeeAccounts = AccountShopShopee::where('status', 'active')
+                ->whereNotNull('access_token')
+                ->get();
+
+            foreach ($shopeeAccounts as $account) {
+                $r = $this->shopeeProductSync->syncForAccount($account);
+                $productSyncResult[] = [
+                    'platform' => 'SHOPEE',
+                    'account'  => $account->seller_name,
+                    'saved'    => $r['saved'],
+                    'pages'    => $r['pages'],
+                    'error'    => $r['error'],
+                ];
+                usleep(300_000);
             }
         }
 
-        // ── STEP 2: Guard — skip jika masih ada batch jobs pending ───────────
-        // Dengan SyncAccountInventoryJob, 1 job bisa 5–15 menit (tergantung jumlah SKU).
-        // Jangan dispatch ulang sebelum batch sebelumnya selesai → cegah penumpukan.
+        // ── STEP 2: Guard — skip jika masih ada batch jobs pending ───────
         try {
             $pending = \Illuminate\Support\Facades\DB::table('jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->count();
 
             if ($pending > 0) {
@@ -529,14 +612,12 @@ class StockController extends Controller
                     'product_sync'    => $productSyncResult ?: null,
                     'reason'          => 'Masih ada batch jobs pending di queue, dispatch dilewati.',
                     'jobs_pending'    => $pending,
-                    'tip'             => 'Normal jika batch job akun sedang berjalan (5–15 menit).',
                 ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
         } catch (\Throwable $e) {
-            // Tabel jobs belum ada — lanjut saja
         }
 
-        // ── STEP 3: Dispatch 1 batch job per akun ────────────────────────────
+        // ── STEP 3: Dispatch batch jobs (TikTok + Shopee) ────────────────
         $stockResponse = $this->syncAll();
         $stockData     = json_decode($stockResponse->getContent(), true) ?? [];
 
@@ -573,7 +654,7 @@ class StockController extends Controller
         try {
             // Cek dulu apakah ada job
             $pending = DB::table('jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->whereNull('reserved_at')
                 ->count();
 
@@ -586,15 +667,15 @@ class StockController extends Controller
 
             // Proses 1 job saja — aman untuk HTTP timeout
             $exitCode = \Illuminate\Support\Facades\Artisan::call('queue:work', [
-                '--queue'    => 'tiktok-inventory',
+                '--queue'    => 'tiktok-inventory,shopee-inventory',
                 '--max-jobs' => 1,
                 '--tries'    => 2,
-                '--timeout'  => 540,  // 9 menit (di bawah set_time_limit)
+                '--timeout'  => 540,
                 '--memory'   => 256,
             ]);
 
             $output    = \Illuminate\Support\Facades\Artisan::output();
-            $remaining = DB::table('jobs')->where('queue', 'tiktok-inventory')->count();
+            $remaining = DB::table('jobs')->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])->count();
 
             return response()->json([
                 'status'         => 'Worker selesai',
@@ -618,13 +699,16 @@ class StockController extends Controller
      * ================================================================ */
     public function syncProgress(): JsonResponse
     {
-        $accounts = AccountShopTiktok::forUser()->get();
-        $now      = now();
+        $tiktokAccounts = AccountShopTiktok::forUser()->get();
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        $shopeeAccounts = AccountShopShopee::when(
+            !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
+        )->where('status', 'active')->get();
 
-        // ── Queue stats ──────────────────────────────────────────────────
-        // available = pending & bisa diambil worker sekarang
-        // delayed   = pending tapi masih dalam backoff (available_at > now) — SEDANG RETRY
-        // reserved  = sedang diproses worker
+        $now = now();
+
+        // ── Queue stats (both queues) ────────────────────────────────
         $available    = 0;
         $delayed      = 0;
         $reserved     = 0;
@@ -633,32 +717,31 @@ class StockController extends Controller
 
         try {
             $available = DB::table('jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->whereNull('reserved_at')
                 ->where('available_at', '<=', $now->timestamp)
                 ->count();
 
             $delayed = DB::table('jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->whereNull('reserved_at')
                 ->where('available_at', '>', $now->timestamp)
                 ->count();
 
             $reserved = DB::table('jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->whereNotNull('reserved_at')
                 ->count();
-        } catch (\Throwable $e) { /* tabel jobs belum ada */
+        } catch (\Throwable $e) {
         }
 
-        // ── Failed jobs (diagnostik error) ──────────────────────────────
         try {
             $failedCount = DB::table('failed_jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->count();
 
             $recentErrors = DB::table('failed_jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->orderByDesc('failed_at')
                 ->limit(5)
                 ->get(['id', 'payload', 'exception', 'failed_at'])
@@ -671,29 +754,45 @@ class StockController extends Controller
                         'error'     => mb_substr($firstLine, 0, 200),
                     ];
                 })->all();
-        } catch (\Throwable $e) { /* tabel failed_jobs belum ada */
+        } catch (\Throwable $e) {
         }
 
-        $accountProgress = $accounts->map(function ($account) {
-            $progress = Cache::get("stock_sync_progress_{$account->id}");
+        // ── Account progress (TikTok + Shopee) ──────────────────────
+        $accountProgress = collect();
 
-            return [
+        foreach ($tiktokAccounts as $account) {
+            $progress = Cache::get("stock_sync_progress_{$account->id}");
+            $accountProgress->push([
                 'account_id'        => $account->id,
                 'account_name'      => $account->seller_name,
+                'platform'          => 'TIKTOK',
                 'id_outlet'         => $account->id_outlet,
                 'last_update_stock' => $account->last_update_stock?->toIso8601String(),
                 'last_update_human' => $account->last_update_stock?->diffForHumans(),
-                'progress'          => $progress, // null jika belum pernah jalan
-            ];
-        });
+                'progress'          => $progress,
+            ]);
+        }
+
+        foreach ($shopeeAccounts as $account) {
+            $progress = Cache::get("shopee_stock_sync_progress_{$account->id}");
+            $accountProgress->push([
+                'account_id'        => $account->id,
+                'account_name'      => $account->seller_name,
+                'platform'          => 'SHOPEE',
+                'id_outlet'         => $account->id_outlet,
+                'last_update_stock' => $account->last_update_stock?->toIso8601String(),
+                'last_update_human' => $account->last_update_stock?->diffForHumans(),
+                'progress'          => $progress,
+            ]);
+        }
 
         return response()->json([
             'queue' => [
-                'available' => $available,   // siap diproses worker
-                'delayed'   => $delayed,     // dalam backoff (retry menunggu)
-                'running'   => $reserved,    // sedang diproses worker
-                'failed'    => $failedCount, // gagal total (cek recent_errors)
-                'pending'   => $available + $delayed, // compat lama
+                'available' => $available,
+                'delayed'   => $delayed,
+                'running'   => $reserved,
+                'failed'    => $failedCount,
+                'pending'   => $available + $delayed,
                 'total'     => $available + $delayed + $reserved,
             ],
             'recent_errors' => $recentErrors,
@@ -710,7 +809,7 @@ class StockController extends Controller
     {
         try {
             $deleted = DB::table('failed_jobs')
-                ->where('queue', 'tiktok-inventory')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
                 ->delete();
         } catch (\Throwable $e) {
             $deleted = 0;

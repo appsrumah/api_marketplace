@@ -25,6 +25,9 @@
         <span class="inline-flex items-center gap-1.5 rounded-full bg-secondary-container px-3 py-1.5 text-xs font-semibold text-on-secondary-container">
             <span class="h-1.5 w-1.5 rounded-full bg-secondary"></span> Tokopedia: {{ number_format($stats['tokopedia']) }}
         </span>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-3 py-1.5 text-xs font-semibold text-orange-700">
+            <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span> Shopee: {{ number_format($stats['shopee']) }}
+        </span>
         <span class="inline-flex items-center gap-1.5 rounded-full bg-secondary-container/50 px-3 py-1.5 text-xs font-semibold text-on-secondary-container">
             <span class="h-1.5 w-1.5 rounded-full bg-secondary"></span> Aktif: {{ number_format($stats['active']) }}
         </span>
@@ -58,7 +61,7 @@
                     <option value="">Semua Akun</option>
                     @foreach($accounts as $acc)
                         <option value="{{ $acc->id }}" {{ request('account_id') == $acc->id ? 'selected' : '' }}>
-                            {{ $acc->shop_name ?? $acc->seller_name }}
+                            [{{ $acc->platform }}] {{ $acc->name }}
                         </option>
                     @endforeach
                 </select>
@@ -72,6 +75,7 @@
                     <option value="">Semua</option>
                     <option value="TIKTOK" {{ request('platform') === 'TIKTOK' ? 'selected' : '' }}>TikTok</option>
                     <option value="TOKOPEDIA" {{ request('platform') === 'TOKOPEDIA' ? 'selected' : '' }}>Tokopedia</option>
+                    <option value="SHOPEE" {{ request('platform') === 'SHOPEE' ? 'selected' : '' }}>Shopee</option>
                 </select>
             </div>
 
@@ -192,7 +196,7 @@
                                         </a>
                                         <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-on-surface-variant">
                                             @if($product->account)
-                                                <span class="text-primary">{{ $product->account->shop_name ?? $product->account->seller_name }}</span>
+                                                <span class="text-primary">{{ $product->account_name }}</span>
                                                 <span>â€¢</span>
                                             @endif
                                             <span class="font-mono">ID: {{ $product->product_id ?: '-' }}</span>
@@ -213,6 +217,10 @@
                                 @elseif($product->platform === 'TOKOPEDIA')
                                     <span class="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2.5 py-1 text-xs font-semibold text-on-secondary-container">
                                         Tokopedia
+                                    </span>
+                                @elseif($product->platform === 'SHOPEE')
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white">
+                                        Shopee
                                     </span>
                                 @else
                                     <span class="inline-flex rounded-full bg-surface-container px-2.5 py-1 text-xs font-semibold text-on-surface">

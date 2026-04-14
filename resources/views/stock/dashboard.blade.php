@@ -371,7 +371,14 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                             </div>
                             <div class="min-w-0">
                                 <h3 class="truncate text-sm font-bold text-on-surface">{{ $account->seller_name }}</h3>
-                                <p class="text-[10px] text-on-surface-variant">Outlet ID: {{ $account->id_outlet ?? 'â€”' }}</p>
+                                <div class="flex items-center gap-1.5">
+                                    @if($account->platform === 'SHOPEE')
+                                        <span class="inline-flex rounded bg-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-white">Shopee</span>
+                                    @else
+                                        <span class="inline-flex rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-white">TikTok</span>
+                                    @endif
+                                    <span class="text-[10px] text-on-surface-variant">Outlet: {{ $account->id_outlet ?? '—' }}</span>
+                                </div>
                             </div>
                         </div>
                         {{-- Status badges --}}
@@ -430,12 +437,19 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
 
                 {{-- Card Footer / Actions --}}
                 <div class="flex gap-2 border-t border-outline-variant/20 bg-surface-container-low/60 px-4 py-3">
-                    {{-- Cek POS --}}
+                    {{-- Cek POS (TikTok only — Shopee uses same POS) --}}
+                    @if($account->platform === 'TIKTOK')
                     <a href="{{ route('stock.test-pos', $account->id) }}"
                        class="flex items-center justify-center gap-1.5 rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface transition hover:bg-surface-container-high">
                         <span class="material-symbols-outlined text-[14px]">content_paste_search</span>
                         Cek POS
                     </a>
+                    @else
+                    <span class="flex items-center gap-1.5 rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface-variant">
+                        <span class="material-symbols-outlined text-[14px]">inventory_2</span>
+                        {{ number_format($account->siap_sync) }} produk siap sync
+                    </span>
+                    @endif
                 </div>
 
                 {{-- Warning: outlet belum set --}}
@@ -453,15 +467,15 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                 @if($account->token_expired)
                 <div class="border-t border-outline-variant/20 bg-error-container/30 px-4 py-2">
                     <p class="text-[10px] text-on-error-container">
-                        âŒ <strong>Token expired.</strong>
-                        <a href="{{ route('tiktok.connect') }}" class="font-semibold underline">Hubungkan ulang akun</a> di dashboard.
+                        ❌ <strong>Token expired.</strong>
+                        <a href="{{ route('integrations.index') }}" class="font-semibold underline">Hubungkan ulang akun</a> di halaman Integrasi.
                     </p>
                 </div>
                 @endif
             </div>
             @empty
             <div class="col-span-full rounded-2xl border-2 border-dashed border-outline-variant/40 p-12 text-center">
-                <p class="text-on-surface-variant">Belum ada akun. <a href="{{ route('tiktok.connect') }}" class="font-semibold text-primary">Hubungkan akun TikTok</a> terlebih dahulu.</p>
+                <p class="text-on-surface-variant">Belum ada akun. <a href="{{ route('integrations.index') }}" class="font-semibold text-primary">Hubungkan akun marketplace</a> terlebih dahulu.</p>
             </div>
             @endforelse
         </div>
@@ -520,6 +534,10 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                                             <svg class="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.11v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.75a8.18 8.18 0 004.76 1.52V6.82a4.83 4.83 0 01-1-.13z"/></svg>
                                             TikTok
                                         </span>
+                                    @elseif($produk->platform === 'SHOPEE')
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white">
+                                            Shopee
+                                        </span>
                                     @else
                                         <span class="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2.5 py-1 text-xs font-semibold text-on-secondary-container">
                                             Tokopedia
@@ -548,16 +566,7 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
-                                    @if($produk->account)
-                                        <span class="text-xs font-medium text-primary">{{ $produk->account->seller_name }}</span>
-                                        @if($produk->account->last_update_stock)
-                                            <p class="mt-0.5 text-[10px] text-secondary">
-                                                {{ $produk->account->last_update_stock->diffForHumans() }}
-                                            </p>
-                                        @else
-                                            <p class="mt-0.5 text-[10px] text-on-surface-variant">Belum pernah sync</p>
-                                        @endif
-                                    @endif
+                                    <span class="text-xs font-medium text-primary">{{ $produk->account_name }}</span>
                                 </td>
                             </tr>
                             @endforeach

@@ -6,6 +6,7 @@ use App\Models\AccountShopShopee;
 use App\Models\ActivityLog;
 use App\Models\MarketplaceChannel;
 use App\Services\ShopeeApiService;
+use App\Services\ShopeeProductSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -13,7 +14,8 @@ use Illuminate\Support\Facades\Log;
 class ShopeeAuthController extends Controller
 {
     public function __construct(
-        private ShopeeApiService $shopeeService
+        private ShopeeApiService $shopeeService,
+        private ShopeeProductSyncService $productSync,
     ) {}
 
     /* ===================================================================
@@ -112,8 +114,24 @@ class ShopeeAuthController extends Controller
 
             Log::info("✅ Shopee akun tersimpan: id={$account->id}, toko={$account->seller_name}, shop_id={$shopId}");
 
+            // ── STEP 5: Auto-sync produk Shopee segera setelah integrasi ──
+            $syncResult = ['saved' => 0, 'error' => null];
+            try {
+                $syncResult = $this->productSync->syncForAccount($account);
+                Log::info("✅ Auto-sync produk Shopee selesai: {$syncResult['saved']} produk", [
+                    'account_id' => $account->id,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning("⚠ Auto-sync produk Shopee gagal setelah integrasi: " . $e->getMessage());
+                $syncResult['error'] = $e->getMessage();
+            }
+
+            $syncMsg = $syncResult['saved'] > 0
+                ? " {$syncResult['saved']} produk berhasil disinkronisasi."
+                : ($syncResult['error'] ? " (Sync produk gagal: {$syncResult['error']})" : '');
+
             return redirect()->route('integrations.index')
-                ->with('success', "✅ Akun Shopee \"{$account->seller_name}\" berhasil terhubung!");
+                ->with('success', "✅ Akun Shopee \"{$account->seller_name}\" berhasil terhubung!{$syncMsg}");
         } catch (\Throwable $e) {
             Log::error('Shopee callback error: ' . $e->getMessage(), [
                 'code'    => $code,
@@ -183,6 +201,31 @@ class ShopeeAuthController extends Controller
 
         return redirect()->route('integrations.index')
             ->with('success', "Akun Shopee \"{$name}\" berhasil diputuskan.");
+    }
+
+    /* ===================================================================
+     *  SYNC PRODUCTS — Manual trigger sync produk dari Shopee
+     *  POST /shopee/accounts/{account}/sync-products
+     * =================================================================== */
+    public function syncProducts(AccountShopShopee $account)
+    {
+        $this->authorizeAccount($account);
+
+        try {
+            $result = $this->productSync->syncForAccount($account);
+
+            if ($result['error']) {
+                return back()->with('warning', "Sync produk Shopee selesai dengan error: {$result['error']}. Produk tersimpan: {$result['saved']}");
+            }
+
+            return back()->with('success', "✅ Berhasil sync {$result['saved']} produk dari Shopee \"{$account->seller_name}\".");
+        } catch (\Throwable $e) {
+            Log::error("Shopee sync products error", [
+                'account_id' => $account->id,
+                'error'      => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Gagal sync produk Shopee: ' . $e->getMessage());
+        }
     }
 
     /* ===================================================================
