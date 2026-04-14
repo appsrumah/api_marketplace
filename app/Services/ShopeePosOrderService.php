@@ -60,9 +60,9 @@ class ShopeePosOrderService
         $account  = $order->account;
         $idOutlet = 0;
 
-        // Cek apakah ChannelAccount punya kolom id_outlet atau ambil dari warehouse
-        if (!empty($account->extra_credentials['id_outlet'])) {
-            $idOutlet = (int) $account->extra_credentials['id_outlet'];
+        // Ambil id_outlet langsung dari kolom account_shop_shopee
+        if (!empty($account->id_outlet)) {
+            $idOutlet = (int) $account->id_outlet;
         } elseif ($account->warehouse && $account->warehouse->id_outlet) {
             $idOutlet = (int) $account->warehouse->id_outlet;
         }
@@ -71,11 +71,11 @@ class ShopeePosOrderService
             return [
                 'success' => false,
                 'id_so'   => null,
-                'message' => 'Akun Shopee belum memiliki ID Outlet. Atur di halaman Integrasi → edit extra_credentials.id_outlet terlebih dahulu.',
+                'message' => 'Akun Shopee belum memiliki ID Outlet. Atur di halaman Integrasi → edit kolom id_outlet terlebih dahulu.',
             ];
         }
 
-        $shopName = $account->shop_name ?? 'Shopee';
+        $shopName = $account->seller_name ?? 'Shopee';
 
         // Cek apakah order sudah ada di POS (tanpa flag is_synced_to_pos)
         $existing = $this->pos()->table('so')->where('nomor_so', $order->order_sn)->first();
@@ -263,14 +263,14 @@ class ShopeePosOrderService
     // ─────────────────────────────────────────────────────────────────────────
     private function sendWablasNotification(ShopeeOrder $order, int $idSo, float $subtotal): void
     {
-        // Cari nomor notif dari extra_credentials akun
-        $phone = $order->account?->extra_credentials['telp_notif'] ?? '';
+        // Ambil nomor notif dari kolom telp_notif langsung
+        $phone = $order->account?->telp_notif ?? '';
 
         if (empty(trim($phone))) {
             return;
         }
 
-        $shopName   = $order->account?->shop_name ?? 'Shopee';
+        $shopName   = $order->account?->seller_name ?? 'Shopee';
         $buyerName  = $order->buyer_name ?? 'Pembeli';
         $itemCount  = $order->items->count();
         $rp         = number_format($subtotal, 0, ',', '.');

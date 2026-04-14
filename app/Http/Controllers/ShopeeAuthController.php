@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountShopShopee;
 use App\Models\ActivityLog;
-use App\Models\ChannelAccount;
 use App\Models\MarketplaceChannel;
 use App\Services\ShopeeApiService;
 use Illuminate\Http\Request;
@@ -75,37 +75,30 @@ class ShopeeAuthController extends Controller
                 Log::warning('Shopee getShopInfo gagal: ' . $e->getMessage());
             }
 
-            // ── STEP 3: Cari channel Shopee ───────────────────────────────
-            $channel = MarketplaceChannel::where('code', MarketplaceChannel::SHOPEE)->first();
+            // ── STEP 3: Ambil channel_id Shopee ──────────────────────────
+            $channelId = MarketplaceChannel::where('code', MarketplaceChannel::SHOPEE)->value('id');
 
-            if (!$channel) {
-                throw new \RuntimeException(
-                    'Channel Shopee tidak ditemukan. Jalankan DatabaseSeeder atau tambah manual di tabel marketplace_channels.'
-                );
-            }
-
-            // ── STEP 4: Simpan / update di channel_accounts ───────────────
+            // ── STEP 4: Simpan / update di account_shop_shopee ───────────
             $userId          = session('shopee_connect_user_id') ?? Auth::id();
             $expireIn        = (int) ($tokenData['expire_in'] ?? 14400);         // default 4 jam
             $refreshExpireIn = (int) ($tokenData['refresh_token_expire_in'] ?? 2592000); // default 30 hari
 
-            /** @var ChannelAccount $account */
-            $account = ChannelAccount::updateOrCreate(
+            /** @var AccountShopShopee $account */
+            $account = AccountShopShopee::updateOrCreate(
                 [
-                    'channel_id' => $channel->id,
-                    'shop_id'    => (string) $shopId,
+                    'shop_id' => (string) $shopId,
                 ],
                 [
-                    'user_id'                  => $userId,
-                    'shop_name'                => $shopName ?? ('Toko Shopee #' . $shopId),
-                    'seller_name'              => $shopName,
-                    'region'                   => 'ID',
-                    'access_token'             => $tokenData['access_token'],
-                    'access_token_expires_at'  => now()->addSeconds($expireIn),
-                    'refresh_token'            => $tokenData['refresh_token'] ?? null,
-                    'refresh_token_expires_at' => now()->addSeconds($refreshExpireIn),
-                    'status'                   => 'active',
-                    'token_obtained_at'        => now(),
+                    'channel_id'              => $channelId,
+                    'user_id'                 => $userId,
+                    'seller_name'             => $shopName ?? ('Toko Shopee #' . $shopId),
+                    'code'                    => $code,
+                    'access_token'            => $tokenData['access_token'],
+                    'access_token_expire_in'  => now()->addSeconds($expireIn),
+                    'refresh_token'           => $tokenData['refresh_token'] ?? null,
+                    'refresh_token_expire_in' => now()->addSeconds($refreshExpireIn),
+                    'status'                  => 'active',
+                    'token_obtained_at'       => now(),
                 ]
             );
 
@@ -114,13 +107,13 @@ class ShopeeAuthController extends Controller
 
             ActivityLog::record(
                 'integration.shopee_connect',
-                "Terhubung ke Shopee toko \"{$account->shop_name}\" (shop_id: {$shopId})"
+                "Terhubung ke Shopee toko \"{$account->seller_name}\" (shop_id: {$shopId})"
             );
 
-            Log::info("✅ Shopee akun tersimpan: id={$account->id}, shop={$account->shop_name}, shop_id={$shopId}");
+            Log::info("✅ Shopee akun tersimpan: id={$account->id}, toko={$account->seller_name}, shop_id={$shopId}");
 
             return redirect()->route('integrations.index')
-                ->with('success', "✅ Akun Shopee \"{$account->shop_name}\" berhasil terhubung!");
+                ->with('success', "✅ Akun Shopee \"{$account->seller_name}\" berhasil terhubung!");
         } catch (\Throwable $e) {
             Log::error('Shopee callback error: ' . $e->getMessage(), [
                 'code'    => $code,
@@ -136,7 +129,7 @@ class ShopeeAuthController extends Controller
      *  REFRESH TOKEN — Perbarui access token manual
      *  POST /shopee/accounts/{account}/refresh-token
      * =================================================================== */
-    public function refreshToken(ChannelAccount $account)
+    public function refreshToken(AccountShopShopee $account)
     {
         $this->authorizeAccount($account);
 
@@ -151,17 +144,17 @@ class ShopeeAuthController extends Controller
             $refreshExpireIn = (int) ($tokenData['refresh_token_expire_in'] ?? 2592000);
 
             $account->update([
-                'access_token'             => $tokenData['access_token'],
-                'access_token_expires_at'  => now()->addSeconds($expireIn),
-                'refresh_token'            => $tokenData['refresh_token'] ?? $account->refresh_token,
-                'refresh_token_expires_at' => now()->addSeconds($refreshExpireIn),
-                'token_obtained_at'        => now(),
-                'status'                   => 'active',
+                'access_token'            => $tokenData['access_token'],
+                'access_token_expire_in'  => now()->addSeconds($expireIn),
+                'refresh_token'           => $tokenData['refresh_token'] ?? $account->refresh_token,
+                'refresh_token_expire_in' => now()->addSeconds($refreshExpireIn),
+                'token_obtained_at'       => now(),
+                'status'                  => 'active',
             ]);
 
             ActivityLog::record(
                 'integration.shopee_refresh_token',
-                "Refresh token Shopee akun \"{$account->shop_name}\""
+                "Refresh token Shopee akun \"{$account->seller_name}\""
             );
 
             return back()->with('success', 'Token Shopee berhasil diperbarui.');
@@ -178,15 +171,15 @@ class ShopeeAuthController extends Controller
      *  DISCONNECT — Putuskan akun Shopee
      *  DELETE /shopee/accounts/{account}/disconnect
      * =================================================================== */
-    public function disconnect(ChannelAccount $account)
+    public function disconnect(AccountShopShopee $account)
     {
         $this->authorizeAccount($account);
 
-        $name = $account->shop_name ?? $account->seller_name ?? ('Toko #' . $account->shop_id);
+        $name = $account->seller_name ?? ('Toko #' . $account->shop_id);
 
         ActivityLog::record('integration.shopee_disconnect', "Memutuskan Shopee \"{$name}\"");
 
-        $account->update(['status' => 'disconnected']);
+        $account->update(['status' => 'revoked']);
 
         return redirect()->route('integrations.index')
             ->with('success', "Akun Shopee \"{$name}\" berhasil diputuskan.");
@@ -195,7 +188,7 @@ class ShopeeAuthController extends Controller
     /* ===================================================================
      *  PRIVATE: Cek otorisasi user ke akun ini
      * =================================================================== */
-    private function authorizeAccount(ChannelAccount $account): void
+    private function authorizeAccount(AccountShopShopee $account): void
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();

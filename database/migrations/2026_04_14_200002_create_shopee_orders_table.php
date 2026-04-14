@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('shopee_orders', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('account_id')->constrained('channel_accounts')->cascadeOnDelete();
+            $table->foreignId('account_id')->constrained('account_shop_shopee')->cascadeOnDelete();
             $table->unsignedBigInteger('channel_id')->nullable();
             $table->unsignedBigInteger('warehouse_id')->nullable();
 

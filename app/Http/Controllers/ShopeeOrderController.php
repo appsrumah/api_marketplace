@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountShopShopee;
 use App\Models\ActivityLog;
-use App\Models\ChannelAccount;
-use App\Models\MarketplaceChannel;
 use App\Models\ShopeeOrder;
 use App\Models\ShopeeOrderItem;
 use App\Services\ShopeeApiService;
@@ -30,10 +29,8 @@ class ShopeeOrderController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
-        // Shopee accounts via ChannelAccount
-        $shopeeChannel = MarketplaceChannel::where('code', MarketplaceChannel::SHOPEE)->first();
-        $accountIds    = ChannelAccount::where('channel_id', $shopeeChannel?->id)
-            ->when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id))
+        // Shopee accounts via AccountShopShopee
+        $accountIds = AccountShopShopee::when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id))
             ->pluck('id');
 
         $query = ShopeeOrder::with(['account', 'items'])->whereIn('account_id', $accountIds);
@@ -82,11 +79,10 @@ class ShopeeOrderController extends Controller
                 ->count(),
         ];
 
-        $accounts = ChannelAccount::where('channel_id', $shopeeChannel?->id)
-            ->when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)) // @phpstan-ignore-line
+        $accounts = AccountShopShopee::when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id))
             ->where('status', 'active')
-            ->orderBy('shop_name')
-            ->get(['id', 'shop_name', 'seller_name']);
+            ->orderBy('seller_name')
+            ->get(['id', 'seller_name']);
 
         return view('shopee.orders.index', compact('orders', 'stats', 'accounts'));
     }
@@ -104,7 +100,7 @@ class ShopeeOrderController extends Controller
     /* ===================================================================
      *  SYNC ORDERS — Tarik order dari Shopee API untuk 1 akun
      * =================================================================== */
-    public function syncOrders(Request $request, ChannelAccount $account)
+    public function syncOrders(Request $request, AccountShopShopee $account)
     {
         try {
             $accessToken = $this->ensureFreshToken($account);
@@ -173,10 +169,10 @@ class ShopeeOrderController extends Controller
                 $posPushed = $posResult['success'] ?? 0;
             }
 
-            ActivityLog::record('shopee.orders.sync', "Sinkronisasi {$totalSaved} order Shopee dari {$account->shop_name} | POS: +{$posPushed}");
+            ActivityLog::record('shopee.orders.sync', "Sinkronisasi {$totalSaved} order Shopee dari {$account->seller_name} | POS: +{$posPushed}");
 
             return redirect()->route('shopee.orders.index')
-                ->with('success', "Berhasil sinkronisasi {$totalSaved} order Shopee dari {$account->shop_name} ({$totalPages} halaman). Push POS: {$posPushed} order.");
+                ->with('success', "Berhasil sinkronisasi {$totalSaved} order Shopee dari {$account->seller_name} ({$totalPages} halaman). Push POS: {$posPushed} order.");
         } catch (\Throwable $e) {
             Log::error('Shopee order sync failed', [
                 'account_id' => $account->id,
@@ -195,9 +191,7 @@ class ShopeeOrderController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $shopeeChannel = MarketplaceChannel::where('code', MarketplaceChannel::SHOPEE)->first();
-        $accountIds = ChannelAccount::where('channel_id', $shopeeChannel?->id)
-            ->when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id))
+        $accountIds = AccountShopShopee::when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id))
             ->pluck('id');
 
         abort_if(!$accountIds->contains($order->account_id), 403);
@@ -224,9 +218,7 @@ class ShopeeOrderController extends Controller
     {
         /** @var User $user */
         $user = Auth::user();
-        $shopeeChannel = MarketplaceChannel::where('code', MarketplaceChannel::SHOPEE)->first();
-        $accountIds = ChannelAccount::where('channel_id', $shopeeChannel?->id)
-            ->when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id))
+        $accountIds = AccountShopShopee::when(!$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id))
             ->pluck('id');
 
         $orders = ShopeeOrder::with(['items', 'account'])
@@ -272,13 +264,7 @@ class ShopeeOrderController extends Controller
         $from = now()->subDays(3)->timestamp;
         $to   = now()->timestamp;
 
-        $shopeeChannel = MarketplaceChannel::where('code', MarketplaceChannel::SHOPEE)->first();
-        if (!$shopeeChannel) {
-            return response()->json(['status' => 'skipped', 'reason' => 'Channel Shopee belum ada di marketplace_channels.'], 200);
-        }
-
-        $accounts = ChannelAccount::where('channel_id', $shopeeChannel->id)
-            ->where('status', 'active')
+        $accounts = AccountShopShopee::where('status', 'active')
             ->whereNotNull('shop_id')
             ->whereNotNull('access_token')
             ->get();
@@ -294,7 +280,7 @@ class ShopeeOrderController extends Controller
 
         foreach ($accounts as $account) {
             $accountResult = [
-                'account'    => $account->shop_name ?? $account->seller_name,
+                'account'    => $account->seller_name,
                 'synced'     => 0,
                 'pos_pushed' => 0,
                 'pos_skip'   => 0,
@@ -355,12 +341,12 @@ class ShopeeOrderController extends Controller
 
                 ActivityLog::record(
                     'shopee.orders.cron_sync',
-                    "Cron sync {$accountResult['synced']} order Shopee dari {$account->shop_name} | POS: +{$accountResult['pos_pushed']}"
+                    "Cron sync {$accountResult['synced']} order Shopee dari {$account->seller_name} | POS: +{$accountResult['pos_pushed']}"
                 );
             } catch (\Throwable $e) {
                 $accountResult['error'] = $e->getMessage();
                 Log::error('Shopee cronSyncAll: gagal untuk akun ' . $account->id, [
-                    'account' => $account->shop_name,
+                    'account' => $account->seller_name,
                     'error'   => $e->getMessage(),
                 ]);
             }
@@ -382,7 +368,7 @@ class ShopeeOrderController extends Controller
     /* ===================================================================
      *  PRIVATE: Fetch order detail from Shopee API & save to DB
      * =================================================================== */
-    private function fetchAndSaveOrderDetail(ChannelAccount $account, string $accessToken, int $shopId, string $orderSn): int
+    private function fetchAndSaveOrderDetail(AccountShopShopee $account, string $accessToken, int $shopId, string $orderSn): int
     {
         try {
             // Shopee v2: GET /api/v2/order/get_order_detail
@@ -421,7 +407,7 @@ class ShopeeOrderController extends Controller
     /* ===================================================================
      *  PRIVATE: Save/update satu order Shopee ke DB
      * =================================================================== */
-    private function saveOrder(ChannelAccount $account, array $apiOrder): int
+    private function saveOrder(AccountShopShopee $account, array $apiOrder): int
     {
         $orderSn = $apiOrder['order_sn'] ?? null;
         if (!$orderSn) return 0;
@@ -524,9 +510,9 @@ class ShopeeOrderController extends Controller
     /* ===================================================================
      *  PRIVATE: Ensure fresh Shopee token
      * =================================================================== */
-    private function ensureFreshToken(ChannelAccount $account): string
+    private function ensureFreshToken(AccountShopShopee $account): string
     {
-        if ($account->access_token_expires_at && now()->gte($account->access_token_expires_at)) {
+        if ($account->access_token_expire_in && now()->gte($account->access_token_expire_in)) {
             Log::info("Refreshing expired Shopee token for account {$account->id}");
 
             $shopId    = (int) $account->shop_id;
@@ -536,12 +522,12 @@ class ShopeeOrderController extends Controller
             $refreshExpireIn = (int) ($tokenData['refresh_token_expire_in'] ?? 2592000);
 
             $account->update([
-                'access_token'             => $tokenData['access_token'],
-                'access_token_expires_at'  => now()->addSeconds($expireIn),
-                'refresh_token'            => $tokenData['refresh_token'] ?? $account->refresh_token,
-                'refresh_token_expires_at' => now()->addSeconds($refreshExpireIn),
-                'token_obtained_at'        => now(),
-                'status'                   => 'active',
+                'access_token'            => $tokenData['access_token'],
+                'access_token_expire_in'  => now()->addSeconds($expireIn),
+                'refresh_token'           => $tokenData['refresh_token'] ?? $account->refresh_token,
+                'refresh_token_expire_in' => now()->addSeconds($refreshExpireIn),
+                'token_obtained_at'       => now(),
+                'status'                  => 'active',
             ]);
 
             $account->refresh();

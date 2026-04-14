@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountShopShopee;
 use App\Models\AccountShopTiktok;
 use App\Models\ActivityLog;
-use App\Models\ChannelAccount;
 use App\Models\MarketplaceChannel;
 use App\Services\TiktokApiService;
 use Illuminate\Http\Request;
@@ -35,30 +35,30 @@ class IntegrationController extends Controller
 
         $accounts = $accountsQuery->latest()->get();
 
-        // Shopee & channel lain via channel_accounts
-        $channelAccountsQuery = ChannelAccount::with(['channel', 'user', 'warehouse']);
+        // Shopee via dedicated account_shop_shopee table
+        $shopeeAccountsQuery = AccountShopShopee::with(['channel', 'user']);
         if (!$user->isSuperAdmin()) {
-            $channelAccountsQuery->where('user_id', $user->id);
+            $shopeeAccountsQuery->where('user_id', $user->id);
         }
-        $channelAccounts = $channelAccountsQuery->latest()->get();
+        $shopeeAccounts = $shopeeAccountsQuery->latest()->get();
 
         // Group by channel_id for display
         $accountsByChannel = $accounts->groupBy('channel_id');
 
-        // Stats (gabungkan TikTok + ChannelAccount)
+        // Stats (gabungkan TikTok + Shopee)
         $allActive  = $accounts->where('status', 'active')->count()
-            + $channelAccounts->where('status', 'active')->count();
+            + $shopeeAccounts->where('status', 'active')->count();
         $allExpired = $accounts->filter(fn($a) => $a->isTokenExpired())->count()
-            + $channelAccounts->filter(fn($a) => $a->isTokenExpired())->count();
+            + $shopeeAccounts->filter(fn($a) => $a->isTokenExpired())->count();
 
         $stats = [
             'total_channels'  => $channels->count(),
-            'total_accounts'  => $accounts->count() + $channelAccounts->count(),
+            'total_accounts'  => $accounts->count() + $shopeeAccounts->count(),
             'active_accounts' => $allActive,
             'expired_tokens'  => $allExpired,
         ];
 
-        return view('integrations.index', compact('channels', 'accounts', 'accountsByChannel', 'channelAccounts', 'stats'));
+        return view('integrations.index', compact('channels', 'accounts', 'accountsByChannel', 'shopeeAccounts', 'stats'));
     }
 
     /* ===================================================================

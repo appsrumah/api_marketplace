@@ -41,10 +41,12 @@
             $channelCode   = strtoupper($channel->identifier);
             $channelColor  = $channel->color ?? '#6b7280';
             // TikTok pakai AccountShopTiktok (via $accountsByChannel)
-            // Shopee & channel lain pakai ChannelAccount (via $channelAccounts dari controller)
-            $loopAccounts  = ($channelCode === 'TIKTOK')
-                ? $accountsByChannel->get($channel->id, collect())
-                : $channelAccounts->where('channel_id', $channel->id);
+            // Shopee pakai AccountShopShopee (via $shopeeAccounts dari controller)
+            $loopAccounts  = match($channelCode) {
+                'TIKTOK' => $accountsByChannel->get($channel->id, collect()),
+                'SHOPEE' => $shopeeAccounts->where('channel_id', $channel->id),
+                default  => collect(),
+            };
             $activeCount   = $loopAccounts->where('status', 'active')->count();
             $supportedPlatforms = ['TIKTOK', 'SHOPEE'];
             $isSupported   = in_array($channelCode, $supportedPlatforms);
@@ -131,13 +133,9 @@
 
                         <div>
                             <h4 class="font-semibold text-on-surface">
-                                {{ $account->shop_name ?? $account->seller_name ?? 'Akun #'.$account->id }}
+                                {{ $account->seller_name ?? $account->shop_name ?? 'Akun #'.$account->id }}
                             </h4>
                             <div class="flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
-                                @if($account->seller_name && $account->shop_name)
-                                    <span>{{ $account->seller_name }}</span>
-                                    <span class="text-outline-variant">|</span>
-                                @endif
                                 {{-- Status badge --}}
                                 @if($isActive)
                                     @if($isExpired)

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\AccountShopShopee;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,7 +13,7 @@ class ShopeeOrder extends Model
     protected $table = 'shopee_orders';
 
     protected $fillable = [
-        'account_id',       // FK → channel_accounts.id
+        'account_id',       // FK → account_shop_shopee.id
         'channel_id',       // FK → marketplace_channels.id
         'warehouse_id',
         'order_sn',         // Shopee order_sn (unique identifier)
@@ -109,7 +110,7 @@ class ShopeeOrder extends Model
 
     public function account(): BelongsTo
     {
-        return $this->belongsTo(ChannelAccount::class, 'account_id');
+        return $this->belongsTo(AccountShopShopee::class, 'account_id');
     }
 
     public function channel(): BelongsTo

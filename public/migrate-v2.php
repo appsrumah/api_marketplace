@@ -582,17 +582,69 @@ if (!$isCli) echo '</div></div>';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════
-// MIGRATION 4: shopee_orders
+// MIGRATION 4b: account_shop_shopee
+// ═══════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
+if (!$isCli) echo '<div class="card"><h2>📋 Tabel: account_shop_shopee</h2><div class="log">';
+else echo "\n--- [4b] account_shop_shopee ---\n";
+
+if (!tableExists($pdo, 'account_shop_shopee')) {
+    $sql = <<<SQL
+CREATE TABLE `account_shop_shopee` (
+    `id`                        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `channel_id`                BIGINT UNSIGNED NULL,
+    `user_id`                   BIGINT UNSIGNED NULL,
+    `seller_name`               VARCHAR(255)    NULL,
+    `shop_id`                   VARCHAR(50)     NULL,
+    `code`                      VARCHAR(200)    NULL,
+    `access_token`              TEXT            NULL,
+    `access_token_expire_in`    TIMESTAMP       NULL,
+    `refresh_token`             TEXT            NULL,
+    `refresh_token_expire_in`   TIMESTAMP       NULL,
+    `id_outlet`                 BIGINT UNSIGNED NULL,
+    `telp_notif`                VARCHAR(255)    NULL,
+    `status`                    ENUM('active','expired','revoked') NOT NULL DEFAULT 'active',
+    `token_obtained_at`         TIMESTAMP       NULL,
+    `last_sync_at`              TIMESTAMP       NULL,
+    `last_update_stock`         TIMESTAMP       NULL,
+    `created_at`                TIMESTAMP       NULL,
+    `updated_at`                TIMESTAMP       NULL,
+
+    PRIMARY KEY (`id`),
+    KEY `idx_shopee_acc_seller`  (`seller_name`),
+    KEY `idx_shopee_acc_shop_id` (`shop_id`),
+    KEY `idx_shopee_acc_status`  (`status`),
+    KEY `idx_shopee_acc_user`    (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL;
+    try {
+        $pdo->exec($sql);
+        out('Tabel account_shop_shopee berhasil dibuat.', 'ok', $isCli);
+        $stats['created']++;
+    } catch (PDOException $e) {
+        out('GAGAL buat account_shop_shopee: ' . $e->getMessage(), 'error', $isCli);
+        $stats['errors']++;
+    }
+} else {
+    out('Tabel account_shop_shopee sudah ada — dilewati.', 'skip', $isCli);
+    $stats['skipped']++;
+}
+
+if (!$isCli) echo '</div></div>';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// MIGRATION 5: shopee_orders
 // ═══════════════════════════════════════════════════════════════
 // ─────────────────────────────────────────────────────────────────────────────
 if (!$isCli) echo '<div class="card"><h2>📋 Tabel: shopee_orders</h2><div class="log">';
-else echo "\n--- [4/5] shopee_orders ---\n";
+else echo "\n--- [5/6] shopee_orders ---\n";
 
 if (!tableExists($pdo, 'shopee_orders')) {
     $sql = <<<SQL
 CREATE TABLE `shopee_orders` (
     `id`                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `account_id`          BIGINT UNSIGNED NOT NULL COMMENT 'FK ke channel_accounts.id',
+    `account_id`          BIGINT UNSIGNED NOT NULL COMMENT 'FK ke account_shop_shopee.id',
     `channel_id`          BIGINT UNSIGNED NULL,
     `warehouse_id`        BIGINT UNSIGNED NULL,
     `order_sn`            VARCHAR(64)     NOT NULL COMMENT 'Shopee order_sn',
@@ -656,7 +708,7 @@ if (!$isCli) echo '</div></div>';
 // ═══════════════════════════════════════════════════════════════
 // ─────────────────────────────────────────────────────────────────────────────
 if (!$isCli) echo '<div class="card"><h2>📋 Tabel: shopee_order_items</h2><div class="log">';
-else echo "\n--- [5/5] shopee_order_items ---\n";
+else echo "\n--- [6/6] shopee_order_items ---\n";
 
 if (!tableExists($pdo, 'shopee_order_items')) {
     $sql = <<<SQL
@@ -705,7 +757,7 @@ if (!$isCli) echo '</div></div>';
 if (!$isCli) echo '<div class="card"><h2>✅ Verifikasi Tabel</h2><div class="log">';
 else echo "\n--- Verifikasi ---\n";
 
-$requiredTables = ['tiktok_conversations', 'tiktok_messages', 'tiktok_webhook_logs', 'channel_accounts', 'shopee_orders', 'shopee_order_items'];
+$requiredTables = ['tiktok_conversations', 'tiktok_messages', 'tiktok_webhook_logs', 'channel_accounts', 'account_shop_shopee', 'shopee_orders', 'shopee_order_items'];
 $allOk = true;
 foreach ($requiredTables as $tbl) {
     if (tableExists($pdo, $tbl)) {
