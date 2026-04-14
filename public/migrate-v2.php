@@ -500,6 +500,88 @@ if (!$isCli) echo '</div></div>';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════
+// MIGRATION 3b: channel_accounts — PATCH kolom yang mungkin belum ada
+// (tabel ini dibuat lebih awal dengan skema lama, tambah kolom baru di sini)
+// ═══════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
+if (!$isCli) echo '<div class="card"><h2>🔧 Tabel: channel_accounts (patch kolom)</h2><div class="log">';
+else echo "\n--- [3b] channel_accounts (patch) ---\n";
+
+if (!tableExists($pdo, 'channel_accounts')) {
+    // Tabel belum ada sama sekali — buat dari awal
+    $sql = <<<SQL
+CREATE TABLE `channel_accounts` (
+    `id`                         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `channel_id`                 BIGINT UNSIGNED NOT NULL,
+    `user_id`                    BIGINT UNSIGNED NULL,
+    `warehouse_id`               BIGINT UNSIGNED NULL,
+    `account_alias`              VARCHAR(100)    NULL,
+    `shop_id`                    VARCHAR(150)    NULL,
+    `shop_name`                  VARCHAR(255)    NULL,
+    `seller_name`                VARCHAR(255)    NULL,
+    `region`                     VARCHAR(10)     NULL,
+    `access_token`               TEXT            NULL,
+    `access_token_expires_at`    TIMESTAMP       NULL,
+    `refresh_token`              TEXT            NULL,
+    `refresh_token_expires_at`   TIMESTAMP       NULL,
+    `extra_credentials`          JSON            NULL,
+    `status`                     ENUM('active','expired','revoked','disconnected') NOT NULL DEFAULT 'active',
+    `token_obtained_at`          TIMESTAMP       NULL,
+    `last_sync_at`               TIMESTAMP       NULL,
+    `last_update_stock`          TIMESTAMP       NULL,
+    `created_at`                 TIMESTAMP       NULL,
+    `updated_at`                 TIMESTAMP       NULL,
+
+    PRIMARY KEY (`id`),
+    KEY `idx_ca_channel_status` (`channel_id`, `status`),
+    KEY `idx_ca_shop_id`        (`shop_id`),
+    KEY `idx_ca_user_id`        (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL;
+    try {
+        $pdo->exec($sql);
+        out('CREATE TABLE channel_accounts — OK', 'ok', $isCli);
+        $stats['created']++;
+    } catch (PDOException $e) {
+        out('GAGAL buat channel_accounts: ' . $e->getMessage(), 'error', $isCli);
+        $stats['errors']++;
+    }
+} else {
+    out('Tabel channel_accounts sudah ada — cek kolom...', 'skip', $isCli);
+    $stats['skipped']++;
+
+    $patchColumns = [
+        'account_alias'            => "ALTER TABLE `channel_accounts` ADD COLUMN `account_alias` VARCHAR(100) NULL AFTER `warehouse_id`",
+        'seller_name'              => "ALTER TABLE `channel_accounts` ADD COLUMN `seller_name` VARCHAR(255) NULL AFTER `shop_name`",
+        'warehouse_id'             => "ALTER TABLE `channel_accounts` ADD COLUMN `warehouse_id` BIGINT UNSIGNED NULL AFTER `user_id`",
+        'extra_credentials'        => "ALTER TABLE `channel_accounts` ADD COLUMN `extra_credentials` JSON NULL AFTER `refresh_token_expires_at`",
+        'access_token_expires_at'  => "ALTER TABLE `channel_accounts` ADD COLUMN `access_token_expires_at` TIMESTAMP NULL AFTER `access_token`",
+        'refresh_token_expires_at' => "ALTER TABLE `channel_accounts` ADD COLUMN `refresh_token_expires_at` TIMESTAMP NULL AFTER `refresh_token`",
+        'token_obtained_at'        => "ALTER TABLE `channel_accounts` ADD COLUMN `token_obtained_at` TIMESTAMP NULL AFTER `status`",
+        'last_sync_at'             => "ALTER TABLE `channel_accounts` ADD COLUMN `last_sync_at` TIMESTAMP NULL AFTER `token_obtained_at`",
+        'last_update_stock'        => "ALTER TABLE `channel_accounts` ADD COLUMN `last_update_stock` TIMESTAMP NULL AFTER `last_sync_at`",
+    ];
+
+    foreach ($patchColumns as $col => $alterSql) {
+        if (!columnExists($pdo, 'channel_accounts', $col)) {
+            try {
+                $pdo->exec($alterSql);
+                out("  + Kolom `{$col}` ditambahkan ke channel_accounts", 'ok', $isCli);
+                $stats['altered']++;
+            } catch (PDOException $e) {
+                out("  ✗ Gagal tambah `{$col}`: " . $e->getMessage(), 'error', $isCli);
+                $stats['errors']++;
+            }
+        } else {
+            out("  ⟳ Kolom `{$col}` sudah ada", 'skip', $isCli);
+        }
+    }
+}
+
+if (!$isCli) echo '</div></div>';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
 // MIGRATION 4: shopee_orders
 // ═══════════════════════════════════════════════════════════════
 // ─────────────────────────────────────────────────────────────────────────────
@@ -623,7 +705,7 @@ if (!$isCli) echo '</div></div>';
 if (!$isCli) echo '<div class="card"><h2>✅ Verifikasi Tabel</h2><div class="log">';
 else echo "\n--- Verifikasi ---\n";
 
-$requiredTables = ['tiktok_conversations', 'tiktok_messages', 'tiktok_webhook_logs', 'shopee_orders', 'shopee_order_items'];
+$requiredTables = ['tiktok_conversations', 'tiktok_messages', 'tiktok_webhook_logs', 'channel_accounts', 'shopee_orders', 'shopee_order_items'];
 $allOk = true;
 foreach ($requiredTables as $tbl) {
     if (tableExists($pdo, $tbl)) {
