@@ -26,6 +26,13 @@ class ShopeeOrderController extends Controller
      * =================================================================== */
     public function index(Request $request)
     {
+        // Redirect ke halaman unified orders dengan filter Shopee
+        return redirect()->route(
+            'unified.orders.index',
+            array_merge(['platform' => 'SHOPEE'], $request->only(['search', 'status', 'account_id', 'date_from', 'date_to', 'page']))
+        );
+
+        // ─── Kode lama dipertahankan sebagai referensi ─────────────────
         /** @var User $user */
         $user = Auth::user();
 

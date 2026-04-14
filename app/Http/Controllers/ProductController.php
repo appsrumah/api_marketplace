@@ -15,10 +15,7 @@ class ProductController extends Controller
     {
         // Gather account IDs from ALL platforms the user has access to
         $tiktokAccountIds = AccountShopTiktok::forUser()->pluck('id');
-        $shopeeAccountIds = AccountShopShopee::when(
-            !auth()->user()->isSuperAdmin(),
-            fn($q) => $q->where('user_id', auth()->id())
-        )->pluck('id');
+        $shopeeAccountIds = AccountShopShopee::forUser()->pluck('id');
 
         // Build the base query depending on platform filter
         $platform = $request->input('platform');
@@ -100,7 +97,7 @@ class ProductController extends Controller
         $tiktokAccounts = AccountShopTiktok::forUser()->orderBy('shop_name')->get(['id', 'shop_name', 'seller_name'])
             ->map(fn($a) => (object)['id' => $a->id, 'name' => $a->shop_name ?: $a->seller_name, 'platform' => 'TIKTOK']);
 
-        $shopeeAccounts = AccountShopShopee::when(!auth()->user()->isSuperAdmin(), fn($q) => $q->where('user_id', auth()->id()))
+        $shopeeAccounts = AccountShopShopee::forUser()
             ->orderBy('seller_name')->get(['id', 'seller_name'])
             ->map(fn($a) => (object)['id' => $a->id, 'name' => $a->seller_name, 'platform' => 'SHOPEE']);
 
@@ -113,7 +110,7 @@ class ProductController extends Controller
     {
         // Check ownership across both platforms
         $tiktokIds = AccountShopTiktok::forUser()->pluck('id');
-        $shopeeIds = AccountShopShopee::when(!auth()->user()->isSuperAdmin(), fn($q) => $q->where('user_id', auth()->id()))->pluck('id');
+        $shopeeIds = AccountShopShopee::forUser()->pluck('id');
         $allIds = $tiktokIds->merge($shopeeIds);
 
         if (!$allIds->contains($product->account_id)) {

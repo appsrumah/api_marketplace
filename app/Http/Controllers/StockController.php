@@ -299,11 +299,7 @@ class StockController extends Controller
         });
 
         // ── Shopee accounts ──────────────────────────────────────────
-        /** @var \App\Models\User $user */
-        $user = auth()->user();
-        $shopeeAccounts = AccountShopShopee::when(
-            !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
-        )->where('status', 'active')->get()->map(function ($account) {
+        $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')->get()->map(function ($account) {
             $base = ProdukSaya::where('account_id', $account->id)
                 ->where('platform', 'SHOPEE')
                 ->where('product_status', 'ACTIVATE');
@@ -347,9 +343,7 @@ class StockController extends Controller
 
         // ── Product list for dashboard (all platforms) ───────────────
         $tiktokAccountIds = AccountShopTiktok::forUser()->pluck('id');
-        $shopeeAccountIds = AccountShopShopee::when(
-            !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
-        )->pluck('id');
+        $shopeeAccountIds = AccountShopShopee::forUser()->pluck('id');
 
         $produkSiapSync = ProdukSaya::query()
             ->where(function ($q) use ($tiktokAccountIds, $shopeeAccountIds) {
@@ -458,11 +452,7 @@ class StockController extends Controller
             }
 
             // ── Shopee accounts ──────────────────────────────────────
-            /** @var \App\Models\User $user */
-            $user = auth()->user();
-            $shopeeAccounts = AccountShopShopee::when(
-                !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
-            )->where('status', 'active')->whereNotNull('id_outlet')->get();
+            $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')->whereNotNull('id_outlet')->get();
 
             foreach ($shopeeAccounts as $account) {
                 SyncShopeeInventoryJob::dispatch(
@@ -700,11 +690,7 @@ class StockController extends Controller
     public function syncProgress(): JsonResponse
     {
         $tiktokAccounts = AccountShopTiktok::forUser()->get();
-        /** @var \App\Models\User $user */
-        $user = auth()->user();
-        $shopeeAccounts = AccountShopShopee::when(
-            !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
-        )->where('status', 'active')->get();
+        $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')->get();
 
         $now = now();
 

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\ProdukSaya;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -84,6 +85,12 @@ class AccountShopShopee extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(ShopeeOrder::class, 'account_id');
+    }
+
+    /** Produk Shopee yang sudah disinkronkan ke produk_saya */
+    public function produk(): HasMany
+    {
+        return $this->hasMany(ProdukSaya::class, 'account_id')->where('platform', 'SHOPEE');
     }
 
     // ─── Scopes ───────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@
 </div>
 
 {{-- STATS CARDS  --}}
-<div class="mt-8 grid grid-cols-2 gap-5 lg:grid-cols-5">
+<div class="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-6">
 
     {{-- Total Akun --}}
     <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
@@ -78,6 +78,18 @@
                 <svg class="h-4 w-4" fill="#03ac0e" viewBox="0 0 24 24"><path d="M12 2C8.74 2 6.45 4.57 6.07 5.88H4.5a2 2 0 00-2 2v10.25a3.87 3.87 0 003.87 3.87h11.26a3.87 3.87 0 003.87-3.87V7.88a2 2 0 00-2-2h-1.57C17.55 4.57 15.26 2 12 2zm0 1.5c2.2 0 3.75 1.73 4.07 2.38H7.93C8.25 5.23 9.8 3.5 12 3.5zm0 5a3.5 3.5 0 110 7 3.5 3.5 0 010-7zm0 1.5a2 2 0 100 4 2 2 0 000-4z"/></svg>
             </div>
             <p class="text-xs text-on-surface-variant">Di Tokopedia</p>
+        </div>
+    </div>
+
+    {{-- Shopee --}}
+    <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Produk Shopee</p>
+        <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_shopee']) }}</p>
+        <div class="mt-3 flex items-center gap-2">
+            <div class="flex h-7 w-7 items-center justify-center rounded-lg" style="background:#ee4d2d10;">
+                <svg class="h-4 w-4" fill="#ee4d2d" viewBox="0 0 24 24"><path d="M12 2a5 5 0 00-5 5H5a2 2 0 00-2 2v11a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-2a5 5 0 00-5-5zm0 2a3 3 0 013 3H9a3 3 0 013-3zm-5 5h10v9H7V9z"/></svg>
+            </div>
+            <p class="text-xs text-on-surface-variant">Di Shopee</p>
         </div>
     </div>
 </div>
@@ -189,16 +201,17 @@
 
                     {{-- Avatar + Info --}}
                     <div class="flex items-start gap-4">
-                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl primary-gradient text-lg font-black text-white">
-                            {{ strtoupper(substr($account->seller_name, 0, 1)) }}
+                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl {{ $account->platform === 'SHOPEE' ? 'bg-orange-500' : 'primary-gradient' }} text-lg font-black text-white">
+                            {{ strtoupper(substr($account->seller_name ?? 'A', 0, 1)) }}
                         </div>
                         <div class="min-w-0">
                             <h3 class="truncate font-headline text-base font-bold text-on-surface">{{ $account->seller_name }}</h3>
                             <p class="text-xs text-on-surface-variant">
-                                {{ $account->seller_base_region }}
-                                {{-- @if($account->shop_cipher)
-                                · <span class="font-mono text-[10px]">{{ Str::limit($account->shop_cipher, 20) }}</span>
-                                @endif --}}
+                                @if($account->platform === 'SHOPEE')
+                                    <span class="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">Shopee</span>
+                                @else
+                                    {{ $account->seller_base_region ?? 'TikTok Shop' }}
+                                @endif
                             </p>
                         </div>
                     </div>
@@ -218,23 +231,43 @@
 
                     {{-- Actions --}}
                     <div class="mt-4 flex gap-2">
-                        <form action="{{ route('tiktok.sync', $account) }}" method="POST" class="flex-1">
-                            @csrf
-                            <button type="submit"
-                                    class="flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary-fixed px-4 py-2.5 text-sm font-bold text-primary transition hover:bg-primary-fixed-dim">
-                                <span class="material-symbols-outlined text-[16px]">sync</span>
-                                Sync Produk
-                            </button>
-                        </form>
-                        <form action="{{ route('tiktok.destroy', $account) }}" method="POST"
-                              onsubmit="return confirm('Hapus akun {{ $account->seller_name }} beserta semua produknya?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit"
-                                    class="flex items-center justify-center rounded-xl border border-error/20 bg-error-container/30 px-3 py-2.5 text-sm font-bold text-error transition hover:bg-error-container/60">
-                                <span class="material-symbols-outlined text-[16px]">delete</span>
-                            </button>
-                        </form>
+                        @if($account->platform === 'SHOPEE')
+                            <form action="{{ route('shopee.sync-products', $account) }}" method="POST" class="flex-1">
+                                @csrf
+                                <button type="submit"
+                                        class="flex w-full items-center justify-center gap-1.5 rounded-xl bg-orange-50 px-4 py-2.5 text-sm font-bold text-orange-600 transition hover:bg-orange-100">
+                                    <span class="material-symbols-outlined text-[16px]">sync</span>
+                                    Sync Produk
+                                </button>
+                            </form>
+                            <form action="{{ route('shopee.disconnect', $account) }}" method="POST"
+                                  onsubmit="return confirm('Putus koneksi {{ $account->seller_name }}?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit"
+                                        class="flex items-center justify-center rounded-xl border border-error/20 bg-error-container/30 px-3 py-2.5 text-sm font-bold text-error transition hover:bg-error-container/60">
+                                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                                </button>
+                            </form>
+                        @else
+                            <form action="{{ route('tiktok.sync', $account) }}" method="POST" class="flex-1">
+                                @csrf
+                                <button type="submit"
+                                        class="flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary-fixed px-4 py-2.5 text-sm font-bold text-primary transition hover:bg-primary-fixed-dim">
+                                    <span class="material-symbols-outlined text-[16px]">sync</span>
+                                    Sync Produk
+                                </button>
+                            </form>
+                            <form action="{{ route('tiktok.destroy', $account) }}" method="POST"
+                                  onsubmit="return confirm('Hapus akun {{ $account->seller_name }} beserta semua produknya?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit"
+                                        class="flex items-center justify-center rounded-xl border border-error/20 bg-error-container/30 px-3 py-2.5 text-sm font-bold text-error transition hover:bg-error-container/60">
+                                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                                </button>
+                            </form>
+                        @endif
                     </div>
                 </div>
             @endforeach

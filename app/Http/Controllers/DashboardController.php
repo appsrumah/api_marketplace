@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AccountShopShopee;
 use App\Models\AccountShopTiktok;
 use App\Models\ProdukSaya;
 use Illuminate\Support\Facades\DB;
@@ -10,30 +11,50 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $accounts = AccountShopTiktok::forUser()->withCount('produk')->latest()->get();
-        $accountIds = $accounts->pluck('id');
+        // ── TikTok accounts ───────────────────────────────────────────
+        $tiktokAccounts = AccountShopTiktok::forUser()->withCount('produk')->latest()->get()
+            ->each(fn($a) => $a->platform = 'TIKTOK');
+
+        // ── Shopee accounts ───────────────────────────────────────────
+        $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')
+            ->withCount('produk')->latest()->get()
+            ->each(fn($a) => $a->platform = 'SHOPEE');
+
+        // Gabungan untuk view
+        $accounts = $tiktokAccounts->merge($shopeeAccounts);
+
+        $tiktokAccountIds = $tiktokAccounts->pluck('id');
+        $shopeeAccountIds = $shopeeAccounts->pluck('id');
 
         $stats = [
-            'total_accounts'   => $accounts->count(),
-            'active_accounts'  => $accounts->where('status', 'active')->count(),
-            'total_products'   => ProdukSaya::whereIn('account_id', $accountIds)->count(),
-            'total_tiktok'     => ProdukSaya::whereIn('account_id', $accountIds)->where('platform', 'TIKTOK')->count(),
-            'total_tokopedia'  => ProdukSaya::whereIn('account_id', $accountIds)->where('platform', 'TOKOPEDIA')->count(),
+            'total_accounts'  => $accounts->count(),
+            'active_accounts' => $tiktokAccounts->where('status', 'active')->count() + $shopeeAccounts->count(),
+            'total_products'  => ProdukSaya::where(function ($q) use ($tiktokAccountIds, $shopeeAccountIds) {
+                $q->where(fn($s) => $s->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])->whereIn('account_id', $tiktokAccountIds))
+                    ->orWhere(fn($s) => $s->where('platform', 'SHOPEE')->whereIn('account_id', $shopeeAccountIds));
+            })->count(),
+            'total_tiktok'    => ProdukSaya::whereIn('account_id', $tiktokAccountIds)->where('platform', 'TIKTOK')->count(),
+            'total_tokopedia' => ProdukSaya::whereIn('account_id', $tiktokAccountIds)->where('platform', 'TOKOPEDIA')->count(),
+            'total_shopee'    => ProdukSaya::whereIn('account_id', $shopeeAccountIds)->where('platform', 'SHOPEE')->count(),
         ];
 
-        // Stock sync summary
+        // ── Stock sync summary ────────────────────────────────────────
+        $lastSyncTiktok = AccountShopTiktok::forUser()->whereNotNull('last_update_stock')->max('last_update_stock');
+        $lastSyncShopee = AccountShopShopee::forUser()->whereNotNull('last_update_stock')->max('last_update_stock');
+        $lastSync       = collect([$lastSyncTiktok, $lastSyncShopee])->filter()->max();
+
         $syncStats = [
-            'siap_sync'    => ProdukSaya::whereIn('account_id', $accountIds)
-                ->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])
-                ->where('product_status', 'ACTIVATE')
-                ->whereNotNull('seller_sku')->where('seller_sku', '!=', '')->count(),
+            'siap_sync'    => ProdukSaya::where(function ($q) use ($tiktokAccountIds, $shopeeAccountIds) {
+                $q->where(fn($s) => $s->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])->whereIn('account_id', $tiktokAccountIds))
+                    ->orWhere(fn($s) => $s->where('platform', 'SHOPEE')->whereIn('account_id', $shopeeAccountIds));
+            })->where('product_status', 'ACTIVATE')->whereNotNull('seller_sku')->where('seller_sku', '!=', '')->count(),
             'jobs_pending' => 0,
-            'last_sync'    => AccountShopTiktok::forUser()->whereNotNull('last_update_stock')
-                ->orderByDesc('last_update_stock')->value('last_update_stock'),
+            'last_sync'    => $lastSync,
         ];
 
         try {
-            $syncStats['jobs_pending'] = DB::table('jobs')->where('queue', 'tiktok-inventory')->count();
+            $syncStats['jobs_pending'] = DB::table('jobs')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])->count();
         } catch (\Throwable $e) { /* jobs table might not exist yet */
         }
 

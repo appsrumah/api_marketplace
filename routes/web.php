@@ -39,7 +39,8 @@ Route::prefix('stock')->name('stock.')->group(function () {
 });
 
 Route::prefix('orders')->name('orders.')->group(function () {
-    Route::get('/cron-sync-all', [OrderController::class, 'cronSyncAll'])->name('cron-sync-all');
+    // Unified: sync order TikTok + Shopee sekaligus dari 1 URL
+    Route::get('/cron-sync-all', [UnifiedOrderController::class, 'cronSyncAllOrders'])->name('cron-sync-all');
 });
 
 Route::prefix('shopee/orders')->name('shopee.orders.')->group(function () {

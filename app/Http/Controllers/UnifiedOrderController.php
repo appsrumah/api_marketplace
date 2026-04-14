@@ -6,6 +6,7 @@ use App\Models\AccountShopShopee;
 use App\Models\AccountShopTiktok;
 use App\Models\Order;
 use App\Models\ShopeeOrder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -23,17 +24,13 @@ class UnifiedOrderController extends Controller
      * =================================================================== */
     public function index(Request $request)
     {
-        /** @var \App\Models\User $user */
-        $user     = auth()->user();
         $platform = $request->input('platform', 'ALL');
         $perPage  = 25;
         $page     = (int) $request->input('page', 1);
 
         // Account IDs per platform
         $tiktokAccountIds = AccountShopTiktok::forUser()->pluck('id');
-        $shopeeAccountIds = AccountShopShopee::when(
-            !$user->isSuperAdmin(), fn($q) => $q->where('user_id', $user->id)
-        )->pluck('id');
+        $shopeeAccountIds = AccountShopShopee::forUser()->pluck('id');
 
         // ── Build queries based on platform filter ───────────────────
         $tiktokOrders = collect();
@@ -158,15 +155,15 @@ class UnifiedOrderController extends Controller
             'tiktok_total' => (clone $tStats)->count(),
             'shopee_total' => (clone $sStats)->count(),
             'awaiting'     => (clone $tStats)->where('order_status', 'AWAITING_SHIPMENT')->count()
-                            + (clone $sStats)->where('order_status', 'READY_TO_SHIP')->count(),
+                + (clone $sStats)->where('order_status', 'READY_TO_SHIP')->count(),
             'in_transit'   => (clone $tStats)->where('order_status', 'IN_TRANSIT')->count()
-                            + (clone $sStats)->where('order_status', 'SHIPPED')->count(),
+                + (clone $sStats)->where('order_status', 'SHIPPED')->count(),
             'completed'    => (clone $tStats)->where('order_status', 'COMPLETED')->count()
-                            + (clone $sStats)->where('order_status', 'COMPLETED')->count(),
+                + (clone $sStats)->where('order_status', 'COMPLETED')->count(),
             'cancelled'    => (clone $tStats)->where('order_status', 'CANCELLED')->count()
-                            + (clone $sStats)->where('order_status', 'CANCELLED')->count(),
+                + (clone $sStats)->where('order_status', 'CANCELLED')->count(),
             'unsynced_pos' => (clone $tStats)->where('is_synced_to_pos', false)->whereNotIn('order_status', ['UNPAID', 'CANCELLED'])->count()
-                            + (clone $sStats)->where('is_synced_to_pos', false)->whereNotIn('order_status', ['UNPAID', 'CANCELLED', 'IN_CANCEL'])->count(),
+                + (clone $sStats)->where('is_synced_to_pos', false)->whereNotIn('order_status', ['UNPAID', 'CANCELLED', 'IN_CANCEL'])->count(),
         ];
 
         // ── Accounts for dropdown ────────────────────────────────────
@@ -174,9 +171,8 @@ class UnifiedOrderController extends Controller
             ->orderBy('shop_name')->get(['id', 'shop_name', 'seller_name'])
             ->map(fn($a) => (object)['id' => $a->id, 'name' => $a->shop_name ?: $a->seller_name, 'platform' => 'TikTok']);
 
-        $shopeeAccounts = AccountShopShopee::when(
-            !auth()->user()->isSuperAdmin(), fn($q) => $q->where('user_id', auth()->id())
-        )->where('status', 'active')->orderBy('seller_name')->get(['id', 'seller_name'])
+        $shopeeAccounts = AccountShopShopee::forUser()
+            ->where('status', 'active')->orderBy('seller_name')->get(['id', 'seller_name'])
             ->map(fn($a) => (object)['id' => $a->id, 'name' => $a->seller_name, 'platform' => 'Shopee']);
 
         $accounts = $tiktokAccounts->merge($shopeeAccounts);
@@ -186,13 +182,40 @@ class UnifiedOrderController extends Controller
             ->get(['id', 'shop_name', 'seller_name'])
             ->map(fn($a) => (object)['id' => $a->id, 'name' => $a->shop_name ?: $a->seller_name, 'platform' => 'tiktok', 'route' => route('orders.sync', $a->id)]);
 
-        $syncShopee = AccountShopShopee::when(
-            !auth()->user()->isSuperAdmin(), fn($q) => $q->where('user_id', auth()->id())
-        )->where('status', 'active')->get(['id', 'seller_name'])
+        $syncShopee = AccountShopShopee::forUser()
+            ->where('status', 'active')->get(['id', 'seller_name'])
             ->map(fn($a) => (object)['id' => $a->id, 'name' => $a->seller_name, 'platform' => 'shopee', 'route' => route('shopee.orders.sync', $a->id)]);
 
         $syncAccounts = $syncTiktok->merge($syncShopee);
 
         return view('unified.orders.index', compact('orders', 'stats', 'accounts', 'syncAccounts', 'platform'));
+    }
+
+    /* ===================================================================
+     *  CRON — Sync SEMUA order (TikTok + Shopee) dari 1 URL
+     *  GET /orders/cron-sync-all?secret=xxx
+     *
+     *  Menggabungkan OrderController::cronSyncAll dan
+     *  ShopeeOrderController::cronSyncAll dalam satu endpoint.
+     *  Cukup 1 cron job untuk semua platform pesanan.
+     * =================================================================== */
+    public function cronSyncAllOrders(Request $request): JsonResponse
+    {
+        if ($request->query('secret') !== config('app.order_sync_secret')) {
+            return response()->json(['status' => 'Unauthorized'], 401);
+        }
+
+        // Delegate ke masing-masing controller (service injection via app())
+        $tiktokResponse = app(OrderController::class)->cronSyncAll($request);
+        $shopeeResponse = app(ShopeeOrderController::class)->cronSyncAll($request);
+
+        $tiktokData = json_decode($tiktokResponse->getContent(), true) ?? [];
+        $shopeeData = json_decode($shopeeResponse->getContent(), true) ?? [];
+
+        return response()->json([
+            'status' => 'OK',
+            'tiktok' => $tiktokData,
+            'shopee' => $shopeeData,
+        ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 }

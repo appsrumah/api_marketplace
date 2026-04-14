@@ -7,7 +7,6 @@ use App\Events\NewMessageReceived;
 use App\Models\ActivityLog;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Listener: simpan notifikasi ke DB dan kirim ke agent CS.
