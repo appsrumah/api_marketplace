@@ -551,15 +551,15 @@ SQL;
     $stats['skipped']++;
 
     $patchColumns = [
-        'account_alias'            => "ALTER TABLE `channel_accounts` ADD COLUMN `account_alias` VARCHAR(100) NULL AFTER `warehouse_id`",
-        'seller_name'              => "ALTER TABLE `channel_accounts` ADD COLUMN `seller_name` VARCHAR(255) NULL AFTER `shop_name`",
-        'warehouse_id'             => "ALTER TABLE `channel_accounts` ADD COLUMN `warehouse_id` BIGINT UNSIGNED NULL AFTER `user_id`",
-        'extra_credentials'        => "ALTER TABLE `channel_accounts` ADD COLUMN `extra_credentials` JSON NULL AFTER `refresh_token_expires_at`",
-        'access_token_expires_at'  => "ALTER TABLE `channel_accounts` ADD COLUMN `access_token_expires_at` TIMESTAMP NULL AFTER `access_token`",
-        'refresh_token_expires_at' => "ALTER TABLE `channel_accounts` ADD COLUMN `refresh_token_expires_at` TIMESTAMP NULL AFTER `refresh_token`",
-        'token_obtained_at'        => "ALTER TABLE `channel_accounts` ADD COLUMN `token_obtained_at` TIMESTAMP NULL AFTER `status`",
-        'last_sync_at'             => "ALTER TABLE `channel_accounts` ADD COLUMN `last_sync_at` TIMESTAMP NULL AFTER `token_obtained_at`",
-        'last_update_stock'        => "ALTER TABLE `channel_accounts` ADD COLUMN `last_update_stock` TIMESTAMP NULL AFTER `last_sync_at`",
+        'account_alias'            => "ALTER TABLE `channel_accounts` ADD COLUMN `account_alias` VARCHAR(100) NULL",
+        'seller_name'              => "ALTER TABLE `channel_accounts` ADD COLUMN `seller_name` VARCHAR(255) NULL",
+        'warehouse_id'             => "ALTER TABLE `channel_accounts` ADD COLUMN `warehouse_id` BIGINT UNSIGNED NULL",
+        'extra_credentials'        => "ALTER TABLE `channel_accounts` ADD COLUMN `extra_credentials` JSON NULL",
+        'access_token_expires_at'  => "ALTER TABLE `channel_accounts` ADD COLUMN `access_token_expires_at` TIMESTAMP NULL",
+        'refresh_token_expires_at' => "ALTER TABLE `channel_accounts` ADD COLUMN `refresh_token_expires_at` TIMESTAMP NULL",
+        'token_obtained_at'        => "ALTER TABLE `channel_accounts` ADD COLUMN `token_obtained_at` TIMESTAMP NULL",
+        'last_sync_at'             => "ALTER TABLE `channel_accounts` ADD COLUMN `last_sync_at` TIMESTAMP NULL",
+        'last_update_stock'        => "ALTER TABLE `channel_accounts` ADD COLUMN `last_update_stock` TIMESTAMP NULL",
     ];
 
     foreach ($patchColumns as $col => $alterSql) {

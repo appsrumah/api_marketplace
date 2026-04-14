@@ -72,18 +72,26 @@ class ShopeeApiService
         $timestamp = time();
         $sign      = $this->buildAuthSign($path, $timestamp);
 
-        $response = Http::post(
-            $this->apiBase . $path . '?' . http_build_query([
-                'partner_id' => $this->partnerId,
-                'timestamp'  => $timestamp,
-                'sign'       => $sign,
-            ]),
-            [
-                'code'       => $code,
-                'shop_id'    => $shopId,
-                'partner_id' => $this->partnerId,
-            ]
-        );
+        try {
+            $response = Http::timeout(30)->connectTimeout(15)->post(
+                $this->apiBase . $path . '?' . http_build_query([
+                    'partner_id' => $this->partnerId,
+                    'timestamp'  => $timestamp,
+                    'sign'       => $sign,
+                ]),
+                [
+                    'code'       => $code,
+                    'shop_id'    => $shopId,
+                    'partner_id' => $this->partnerId,
+                ]
+            );
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            throw new \RuntimeException(
+                'Server tidak dapat menghubungi Shopee API (timeout/koneksi diblokir). '
+                    . 'Pastikan server bisa akses outbound HTTPS ke partner.shopeemobile.com. '
+                    . 'Detail: ' . $e->getMessage()
+            );
+        }
 
         $data = $response->json();
         Log::info('Shopee getAccessToken', ['shop_id' => $shopId, 'status' => $response->status(), 'has_token' => !empty($data['access_token'])]);
@@ -105,18 +113,25 @@ class ShopeeApiService
         $timestamp = time();
         $sign      = $this->buildAuthSign($path, $timestamp);
 
-        $response = Http::post(
-            $this->apiBase . $path . '?' . http_build_query([
-                'partner_id' => $this->partnerId,
-                'timestamp'  => $timestamp,
-                'sign'       => $sign,
-            ]),
-            [
-                'shop_id'       => $shopId,
-                'refresh_token' => $refreshToken,
-                'partner_id'    => $this->partnerId,
-            ]
-        );
+        try {
+            $response = Http::timeout(30)->connectTimeout(15)->post(
+                $this->apiBase . $path . '?' . http_build_query([
+                    'partner_id' => $this->partnerId,
+                    'timestamp'  => $timestamp,
+                    'sign'       => $sign,
+                ]),
+                [
+                    'shop_id'       => $shopId,
+                    'refresh_token' => $refreshToken,
+                    'partner_id'    => $this->partnerId,
+                ]
+            );
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            throw new \RuntimeException(
+                'Server tidak dapat menghubungi Shopee API (timeout/koneksi diblokir). '
+                    . 'Detail: ' . $e->getMessage()
+            );
+        }
 
         $data = $response->json();
         Log::info('Shopee refreshToken', ['shop_id' => $shopId, 'status' => $response->status(), 'has_token' => !empty($data['access_token'])]);
@@ -138,7 +153,7 @@ class ShopeeApiService
         $timestamp = time();
         $sign      = $this->buildShopSign($path, $timestamp, $accessToken, $shopId);
 
-        $response = Http::get($this->apiBase . $path, [
+        $response = Http::timeout(30)->connectTimeout(15)->get($this->apiBase . $path, [
             'partner_id'   => $this->partnerId,
             'timestamp'    => $timestamp,
             'sign'         => $sign,
