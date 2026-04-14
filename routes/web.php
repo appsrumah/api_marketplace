@@ -9,6 +9,7 @@ use App\Http\Controllers\ProductDetailController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShopeeAuthController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\TikTokWebhookController;
 use App\Http\Controllers\TiktokAuthController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,15 @@ Route::prefix('orders')->name('orders.')->group(function () {
 
 Route::get('/tiktok/cron-refresh-token', [TiktokAuthController::class, 'cronRefreshToken'])
     ->name('tiktok.cron-refresh-token');
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ | WEBHOOKS — Endpoint untuk menerima notifikasi dari platform eksternal
+ | Tanpa auth middleware — dipanggil oleh TikTok server
+ ═══════════════════════════════════════════════════════════════════════════ */
+Route::prefix('webhooks')->name('webhooks.')->group(function () {
+    Route::post('/tiktok/customer-service', [TikTokWebhookController::class, 'handle'])
+        ->name('tiktok.customer-service');
+});
 
 /* ═══════════════════════════════════════════════════════════════════════════
  | PROTECTED — Semua route di bawah wajib login & akun aktif

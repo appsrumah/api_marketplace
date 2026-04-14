@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Listeners\SendAgentNotification;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register TikTok CS event subscriber
+        Event::subscribe(SendAgentNotification::class);
     }
 }

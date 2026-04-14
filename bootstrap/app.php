@@ -13,10 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // Exclude route internal-callback dari CSRF
         $middleware->validateCsrfTokens(except: [
-            'tiktok/internal-callback', // external POST from callbacknew.php
-            'stock/sync-all',           // cron/external trigger update stok
-            'stock/cron-sync-all',      // curl cron trigger
-            'stock/run-queue',          // curl cron queue worker
+            'tiktok/internal-callback',            // external POST from callbacknew.php
+            'stock/sync-all',                      // cron/external trigger update stok
+            'stock/cron-sync-all',                 // curl cron trigger
+            'stock/run-queue',                     // curl cron queue worker
+            'webhooks/tiktok/customer-service',    // TikTok CS webhook (external POST)
         ]);
 
         // Alias middleware
