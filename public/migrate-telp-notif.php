@@ -29,11 +29,12 @@ $results = [];
 // ─── 1. Tambah kolom telp_notif ke account_shop_tiktok ───────────────────────
 try {
     if (!Schema::hasColumn('account_shop_tiktok', 'telp_notif')) {
+        // MariaDB: urutan wajib → NULL → COMMENT → AFTER
         DB::statement("
             ALTER TABLE account_shop_tiktok
             ADD COLUMN telp_notif VARCHAR(255) NULL
-                AFTER id_outlet
                 COMMENT 'Nomor WA notifikasi order baru (pisah koma untuk multi nomor)'
+                AFTER id_outlet
         ");
         $results[] = ['status' => '✅', 'msg' => 'Kolom <b>telp_notif</b> berhasil ditambahkan ke tabel <b>account_shop_tiktok</b>'];
     } else {
@@ -44,20 +45,29 @@ try {
 }
 
 // ─── 2. Catat di tabel migrations Laravel ────────────────────────────────────
+// (Hapus dulu jika entry sudah ada tapi kolom belum ada — akibat run sebelumnya yang gagal)
 $migrationName = '2026_04_14_200001_add_telp_notif_to_account_shop_tiktok';
 try {
-    if (!DB::table('migrations')->where('migration', $migrationName)->exists()) {
+    $colExists = Schema::hasColumn('account_shop_tiktok', 'telp_notif');
+
+    // Kalau entry ada tapi kolom tidak ada → hapus entry salah itu dulu
+    if (!$colExists && DB::table('migrations')->where('migration', $migrationName)->exists()) {
+        DB::table('migrations')->where('migration', $migrationName)->delete();
+        $results[] = ['status' => '🗑️', 'msg' => "Entry migrations lama (gagal) dihapus, akan dicatat ulang"];
+    }
+
+    if ($colExists && !DB::table('migrations')->where('migration', $migrationName)->exists()) {
         $batch = (int) DB::table('migrations')->max('batch') + 1;
         DB::table('migrations')->insert([
             'migration' => $migrationName,
             'batch'     => $batch,
         ]);
         $results[] = ['status' => '✅', 'msg' => "Migration <b>{$migrationName}</b> dicatat di tabel migrations (batch {$batch})"];
-    } else {
+    } elseif ($colExists) {
         $results[] = ['status' => 'ℹ️', 'msg' => "Migration <b>{$migrationName}</b> sudah tercatat — dilewati"];
     }
 } catch (\Throwable $e) {
-    $results[] = ['status' => '⚠️', 'msg' => 'Kolom berhasil dibuat tapi gagal catat migrations: ' . htmlspecialchars($e->getMessage())];
+    $results[] = ['status' => '⚠️', 'msg' => 'Gagal catat migrations: ' . htmlspecialchars($e->getMessage())];
 }
 
 // ─── Verifikasi akhir ─────────────────────────────────────────────────────────
