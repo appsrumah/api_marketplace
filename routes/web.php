@@ -8,6 +8,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductDetailController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShopeeAuthController;
+use App\Http\Controllers\ShopeeOrderController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\TikTokWebhookController;
 use App\Http\Controllers\TiktokAuthController;
@@ -38,6 +39,10 @@ Route::prefix('stock')->name('stock.')->group(function () {
 
 Route::prefix('orders')->name('orders.')->group(function () {
     Route::get('/cron-sync-all', [OrderController::class, 'cronSyncAll'])->name('cron-sync-all');
+});
+
+Route::prefix('shopee/orders')->name('shopee.orders.')->group(function () {
+    Route::get('/cron-sync-all', [ShopeeOrderController::class, 'cronSyncAll'])->name('cron-sync-all');
 });
 
 Route::get('/tiktok/cron-refresh-token', [TiktokAuthController::class, 'cronRefreshToken'])
@@ -84,6 +89,15 @@ Route::middleware(['auth', 'check.active'])->group(function () {
         Route::get('/callback',                          [ShopeeAuthController::class, 'callback'])->name('callback');
         Route::post('/accounts/{account}/refresh-token', [ShopeeAuthController::class, 'refreshToken'])->name('refresh-token');
         Route::delete('/accounts/{account}/disconnect',  [ShopeeAuthController::class, 'disconnect'])->name('disconnect');
+    });
+
+    /* ---------- Shopee Orders ---------- */
+    Route::prefix('shopee/orders')->name('shopee.orders.')->group(function () {
+        Route::get('/',                          [ShopeeOrderController::class, 'index'])->name('index');
+        Route::post('/push-all-pos',             [ShopeeOrderController::class, 'pushAllToPos'])->name('push-all-pos');
+        Route::get('/{order}',                   [ShopeeOrderController::class, 'show'])->name('show');
+        Route::post('/{order}/push-pos',         [ShopeeOrderController::class, 'pushToPos'])->name('push-pos');
+        Route::post('/{account}/sync',           [ShopeeOrderController::class, 'syncOrders'])->name('sync');
     });
 
     /* ---------- TikTok Auth Flow ---------- */

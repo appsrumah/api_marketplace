@@ -43,40 +43,155 @@ if (!$isCli) {
 // HTML HEADER (browser only)
 // ─────────────────────────────────────────────────────────────────────────────
 if (!$isCli): ?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok CS Webhook — Migration v2</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', monospace; background: #0f0f0f; color: #e0e0e0; padding: 20px; }
-        h1 { color: #ff4757; margin-bottom: 4px; font-size: 1.4rem; }
-        .subtitle { color: #888; font-size: 0.85rem; margin-bottom: 20px; }
-        .card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
-        .card h2 { font-size: 1rem; color: #ff6b81; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #333; }
-        .log { font-family: monospace; font-size: 0.82rem; line-height: 1.7; }
-        .ok    { color: #2ed573; }
-        .skip  { color: #ffa502; }
-        .error { color: #ff4757; }
-        .info  { color: #1e90ff; }
-        .warn  { color: #eccc68; }
-        .sql   { color: #a29bfe; font-size: 0.75rem; display: block; margin-left: 20px; opacity: 0.8; }
-        .summary { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
-        .badge { padding: 6px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; }
-        .badge-ok    { background: #1e3a2f; color: #2ed573; border: 1px solid #2ed573; }
-        .badge-skip  { background: #3a2e1e; color: #ffa502; border: 1px solid #ffa502; }
-        .badge-error { background: #3a1e1e; color: #ff4757; border: 1px solid #ff4757; }
-        .warning-box { background: #3a2e00; border: 1px solid #ffa502; border-radius: 8px; padding: 12px 16px; margin-top: 16px; color: #ffa502; font-size: 0.85rem; }
-        .warning-box strong { display: block; margin-bottom: 4px; font-size: 0.95rem; }
-        pre { background: #111; border: 1px solid #333; border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 0.8rem; color: #a29bfe; margin-top: 8px; white-space: pre-wrap; }
-    </style>
-</head>
-<body>
-    <h1>🗃️ TikTok CS Webhook — Migration v2</h1>
-    <p class="subtitle">Membuat tabel untuk integrasi Customer Service Webhook TikTok Shop</p>
-<?php endif;
+    <!DOCTYPE html>
+    <html lang="id">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Migration v2 — TikTok CS + Shopee Orders</title>
+        <style>
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                font-family: 'Segoe UI', monospace;
+                background: #0f0f0f;
+                color: #e0e0e0;
+                padding: 20px;
+            }
+
+            h1 {
+                color: #ff4757;
+                margin-bottom: 4px;
+                font-size: 1.4rem;
+            }
+
+            .subtitle {
+                color: #888;
+                font-size: 0.85rem;
+                margin-bottom: 20px;
+            }
+
+            .card {
+                background: #1a1a1a;
+                border: 1px solid #333;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 16px;
+            }
+
+            .card h2 {
+                font-size: 1rem;
+                color: #ff6b81;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #333;
+            }
+
+            .log {
+                font-family: monospace;
+                font-size: 0.82rem;
+                line-height: 1.7;
+            }
+
+            .ok {
+                color: #2ed573;
+            }
+
+            .skip {
+                color: #ffa502;
+            }
+
+            .error {
+                color: #ff4757;
+            }
+
+            .info {
+                color: #1e90ff;
+            }
+
+            .warn {
+                color: #eccc68;
+            }
+
+            .sql {
+                color: #a29bfe;
+                font-size: 0.75rem;
+                display: block;
+                margin-left: 20px;
+                opacity: 0.8;
+            }
+
+            .summary {
+                display: flex;
+                gap: 12px;
+                flex-wrap: wrap;
+                margin-top: 12px;
+            }
+
+            .badge {
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-size: 0.82rem;
+                font-weight: 600;
+            }
+
+            .badge-ok {
+                background: #1e3a2f;
+                color: #2ed573;
+                border: 1px solid #2ed573;
+            }
+
+            .badge-skip {
+                background: #3a2e1e;
+                color: #ffa502;
+                border: 1px solid #ffa502;
+            }
+
+            .badge-error {
+                background: #3a1e1e;
+                color: #ff4757;
+                border: 1px solid #ff4757;
+            }
+
+            .warning-box {
+                background: #3a2e00;
+                border: 1px solid #ffa502;
+                border-radius: 8px;
+                padding: 12px 16px;
+                margin-top: 16px;
+                color: #ffa502;
+                font-size: 0.85rem;
+            }
+
+            .warning-box strong {
+                display: block;
+                margin-bottom: 4px;
+                font-size: 0.95rem;
+            }
+
+            pre {
+                background: #111;
+                border: 1px solid #333;
+                border-radius: 6px;
+                padding: 12px;
+                overflow-x: auto;
+                font-size: 0.8rem;
+                color: #a29bfe;
+                margin-top: 8px;
+                white-space: pre-wrap;
+            }
+        </style>
+    </head>
+
+    <body>
+        <h1>🗃️ Migration v2 — TikTok CS + Shopee Orders</h1>
+        <p class="subtitle">Membuat tabel untuk TikTok CS Webhook + Shopee Order Integration</p>
+    <?php endif;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KONEKSI DATABASE
@@ -84,7 +199,7 @@ if (!$isCli): ?>
 function out(string $message, string $type = 'info', bool $isCli = false): void
 {
     if ($isCli) {
-        $prefix = match($type) {
+        $prefix = match ($type) {
             'ok'    => '✓ ',
             'skip'  => '⟳ ',
             'error' => '✗ ',
@@ -94,7 +209,7 @@ function out(string $message, string $type = 'info', bool $isCli = false): void
         };
         echo $prefix . strip_tags($message) . "\n";
     } else {
-        $class = match($type) {
+        $class = match ($type) {
             'ok', 'skip', 'error', 'warn', 'sql', 'info' => $type,
             default => 'info',
         };
@@ -106,7 +221,10 @@ function out(string $message, string $type = 'info', bool $isCli = false): void
 try {
     $dsn = sprintf(
         'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-        DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
+        DB_HOST,
+        DB_PORT,
+        DB_NAME,
+        DB_CHARSET
     );
     $pdo = new PDO($dsn, DB_USER, DB_PASS, [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -216,8 +334,8 @@ SQL;
         'shop_id'          => "ALTER TABLE `tiktok_conversations` ADD COLUMN `shop_id` VARCHAR(128) NULL AFTER `buyer_avatar`",
         'unread_count'     => "ALTER TABLE `tiktok_conversations` ADD COLUMN `unread_count` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `status`",
         'latest_message'   => "ALTER TABLE `tiktok_conversations` ADD COLUMN `latest_message` TEXT NULL AFTER `unread_count`",
-        'assigned_agent_id'=> "ALTER TABLE `tiktok_conversations` ADD COLUMN `assigned_agent_id` BIGINT UNSIGNED NULL AFTER `last_message_at`",
-        'tiktok_updated_at'=> "ALTER TABLE `tiktok_conversations` ADD COLUMN `tiktok_updated_at` TIMESTAMP NULL AFTER `tiktok_created_at`",
+        'assigned_agent_id' => "ALTER TABLE `tiktok_conversations` ADD COLUMN `assigned_agent_id` BIGINT UNSIGNED NULL AFTER `last_message_at`",
+        'tiktok_updated_at' => "ALTER TABLE `tiktok_conversations` ADD COLUMN `tiktok_updated_at` TIMESTAMP NULL AFTER `tiktok_created_at`",
         'extra'            => "ALTER TABLE `tiktok_conversations` ADD COLUMN `extra` JSON NULL AFTER `tiktok_updated_at`",
     ];
 
@@ -381,12 +499,131 @@ SQL;
 if (!$isCli) echo '</div></div>';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// MIGRATION 4: shopee_orders
+// ═══════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
+if (!$isCli) echo '<div class="card"><h2>📋 Tabel: shopee_orders</h2><div class="log">';
+else echo "\n--- [4/5] shopee_orders ---\n";
+
+if (!tableExists($pdo, 'shopee_orders')) {
+    $sql = <<<SQL
+CREATE TABLE `shopee_orders` (
+    `id`                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `account_id`          BIGINT UNSIGNED NOT NULL COMMENT 'FK ke channel_accounts.id',
+    `channel_id`          BIGINT UNSIGNED NULL,
+    `warehouse_id`        BIGINT UNSIGNED NULL,
+    `order_sn`            VARCHAR(64)     NOT NULL COMMENT 'Shopee order_sn',
+    `order_status`        VARCHAR(50)     NOT NULL DEFAULT 'UNPAID',
+    `buyer_user_id`       VARCHAR(64)     NULL,
+    `buyer_username`      VARCHAR(100)    NULL,
+    `buyer_name`          VARCHAR(200)    NULL,
+    `buyer_phone`         VARCHAR(50)     NULL,
+    `buyer_message`       TEXT            NULL,
+    `shipping_carrier`    VARCHAR(100)    NULL,
+    `tracking_number`     VARCHAR(100)    NULL,
+    `shipping_address`    JSON            NULL,
+    `total_amount`        DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `subtotal_amount`     DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `shipping_fee`        DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `seller_discount`     DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `voucher_from_seller` DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `voucher_from_shopee` DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `coin_offset`         DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `currency`            VARCHAR(10)     NOT NULL DEFAULT 'IDR',
+    `payment_method`      VARCHAR(100)    NULL,
+    `is_cod`              TINYINT(1)      NOT NULL DEFAULT 0,
+    `create_time`         BIGINT UNSIGNED NULL,
+    `update_time`         BIGINT UNSIGNED NULL,
+    `pay_time`            BIGINT UNSIGNED NULL,
+    `ship_by_date`        BIGINT UNSIGNED NULL,
+    `days_to_ship`        INT UNSIGNED    NULL,
+    `is_synced_to_pos`    TINYINT(1)      NOT NULL DEFAULT 0,
+    `synced_to_pos_at`    TIMESTAMP       NULL,
+    `pos_order_id`        VARCHAR(50)     NULL,
+    `raw_data`            JSON            NULL,
+    `created_at`          TIMESTAMP       NULL,
+    `updated_at`          TIMESTAMP       NULL,
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_shopee_order_account` (`account_id`, `order_sn`),
+    KEY `idx_shopee_order_sn`     (`order_sn`),
+    KEY `idx_shopee_order_status` (`order_status`),
+    KEY `idx_shopee_order_sync`   (`is_synced_to_pos`),
+    KEY `idx_shopee_order_create` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL;
+    try {
+        $pdo->exec($sql);
+        out('Tabel shopee_orders berhasil dibuat.', 'ok', $isCli);
+        $stats['created']++;
+    } catch (PDOException $e) {
+        out('GAGAL buat shopee_orders: ' . $e->getMessage(), 'error', $isCli);
+        $stats['errors']++;
+    }
+} else {
+    out('Tabel shopee_orders sudah ada — dilewati.', 'skip', $isCli);
+    $stats['skipped']++;
+}
+
+if (!$isCli) echo '</div></div>';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// MIGRATION 5: shopee_order_items
+// ═══════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────────
+if (!$isCli) echo '<div class="card"><h2>📋 Tabel: shopee_order_items</h2><div class="log">';
+else echo "\n--- [5/5] shopee_order_items ---\n";
+
+if (!tableExists($pdo, 'shopee_order_items')) {
+    $sql = <<<SQL
+CREATE TABLE `shopee_order_items` (
+    `id`                      BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `shopee_order_id`         BIGINT UNSIGNED NOT NULL COMMENT 'FK ke shopee_orders.id',
+    `item_id`                 BIGINT UNSIGNED NULL,
+    `item_name`               VARCHAR(300)    NULL,
+    `item_sku`                VARCHAR(100)    NULL,
+    `model_id`                BIGINT UNSIGNED NULL,
+    `model_name`              VARCHAR(300)    NULL,
+    `model_sku`               VARCHAR(100)    NULL,
+    `model_original_price`    DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `model_discounted_price`  DECIMAL(15,2)   NOT NULL DEFAULT 0,
+    `quantity_purchased`      INT UNSIGNED    NOT NULL DEFAULT 1,
+    `image_url`               VARCHAR(500)    NULL,
+    `weight`                  DECIMAL(10,3)   NOT NULL DEFAULT 0,
+    `is_wholesale`            TINYINT(1)      NOT NULL DEFAULT 0,
+    `created_at`              TIMESTAMP       NULL,
+    `updated_at`              TIMESTAMP       NULL,
+
+    PRIMARY KEY (`id`),
+    KEY `idx_shopee_item_order` (`shopee_order_id`),
+    KEY `idx_shopee_item_sku`   (`model_sku`),
+    CONSTRAINT `fk_shopee_items_order` FOREIGN KEY (`shopee_order_id`) REFERENCES `shopee_orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL;
+    try {
+        $pdo->exec($sql);
+        out('Tabel shopee_order_items berhasil dibuat.', 'ok', $isCli);
+        $stats['created']++;
+    } catch (PDOException $e) {
+        out('GAGAL buat shopee_order_items: ' . $e->getMessage(), 'error', $isCli);
+        $stats['errors']++;
+    }
+} else {
+    out('Tabel shopee_order_items sudah ada — dilewati.', 'skip', $isCli);
+    $stats['skipped']++;
+}
+
+if (!$isCli) echo '</div></div>';
+
+// ─────────────────────────────────────────────────────────────────────────────
 // VERIFIKASI AKHIR — Cek semua tabel terbuat
 // ─────────────────────────────────────────────────────────────────────────────
 if (!$isCli) echo '<div class="card"><h2>✅ Verifikasi Tabel</h2><div class="log">';
 else echo "\n--- Verifikasi ---\n";
 
-$requiredTables = ['tiktok_conversations', 'tiktok_messages', 'tiktok_webhook_logs'];
+$requiredTables = ['tiktok_conversations', 'tiktok_messages', 'tiktok_webhook_logs', 'shopee_orders', 'shopee_order_items'];
 $allOk = true;
 foreach ($requiredTables as $tbl) {
     if (tableExists($pdo, $tbl)) {
@@ -421,37 +658,39 @@ if ($isCli) {
 } else {
     // Browser summary
     ?>
-    <div class="card">
-        <h2>📊 Ringkasan</h2>
-        <div class="summary">
-            <span class="badge badge-ok">✓ Dibuat baru: <?= $stats['created'] ?></span>
-            <span class="badge badge-ok">+ Kolom baru: <?= $stats['altered'] ?></span>
-            <span class="badge badge-skip">⟳ Dilewati: <?= $stats['skipped'] ?></span>
-            <?php if ($stats['errors'] > 0): ?>
-            <span class="badge badge-error">✗ Error: <?= $stats['errors'] ?></span>
-            <?php endif; ?>
+        <div class="card">
+            <h2>📊 Ringkasan</h2>
+            <div class="summary">
+                <span class="badge badge-ok">✓ Dibuat baru: <?= $stats['created'] ?></span>
+                <span class="badge badge-ok">+ Kolom baru: <?= $stats['altered'] ?></span>
+                <span class="badge badge-skip">⟳ Dilewati: <?= $stats['skipped'] ?></span>
+                <?php if ($stats['errors'] > 0): ?>
+                    <span class="badge badge-error">✗ Error: <?= $stats['errors'] ?></span>
+                <?php endif; ?>
+            </div>
         </div>
-    </div>
 
-    <?php if ($allOk): ?>
-    <div class="card" style="border-color: #2ed573;">
-        <h2 style="color: #2ed573;">✅ Migration Berhasil!</h2>
-        <p class="log ok">Semua tabel berhasil dibuat/diverifikasi.</p>
-    </div>
-    <?php else: ?>
-    <div class="card" style="border-color: #ff4757;">
-        <h2 style="color: #ff4757;">❌ Ada Error!</h2>
-        <p class="log error">Cek detail output di atas.</p>
-    </div>
-    <?php endif; ?>
+        <?php if ($allOk): ?>
+            <div class="card" style="border-color: #2ed573;">
+                <h2 style="color: #2ed573;">✅ Migration Berhasil!</h2>
+                <p class="log ok">Semua tabel berhasil dibuat/diverifikasi.</p>
+            </div>
+        <?php else: ?>
+            <div class="card" style="border-color: #ff4757;">
+                <h2 style="color: #ff4757;">❌ Ada Error!</h2>
+                <p class="log error">Cek detail output di atas.</p>
+            </div>
+        <?php endif; ?>
 
-    <div class="warning-box">
-        <strong>⚠️ WAJIB DILAKUKAN SETELAH MIGRATION BERHASIL:</strong>
-        Hapus file <code>public/migrate-v2.php</code> dari server!<br>
-        File ini tidak boleh dibiarkan accessible di production karena dapat menjadi celah keamanan.
-        <pre>rm public/migrate-v2.php
+        <div class="warning-box">
+            <strong>⚠️ WAJIB DILAKUKAN SETELAH MIGRATION BERHASIL:</strong>
+            Hapus file <code>public/migrate-v2.php</code> dari server!<br>
+            File ini tidak boleh dibiarkan accessible di production karena dapat menjadi celah keamanan.
+            <pre>rm public/migrate-v2.php
 # atau via cPanel File Manager: hapus file ini dari folder public_html/public/</pre>
-    </div>
-    </body></html>
-    <?php
+        </div>
+    </body>
+
+    </html>
+<?php
 }

@@ -87,8 +87,8 @@ class ChannelAccount extends Model
         return $query->where('status', 'active');
     }
 
-    public function scopeByChannel($query, string $channelSlug)
+    public function scopeByChannel($query, string $channelCode)
     {
-        return $query->whereHas('channel', fn($q) => $q->where('slug', $channelSlug));
+        return $query->whereHas('channel', fn($q) => $q->where('code', $channelCode));
     }
 }

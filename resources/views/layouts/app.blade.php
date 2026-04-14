@@ -86,7 +86,15 @@
            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150
                   {{ request()->routeIs('orders.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white' }}">
             <span class="material-symbols-outlined text-[20px]">shopping_cart</span>
-            Pesanan
+            Pesanan TikTok
+        </a>
+
+        {{-- Pesanan Shopee --}}
+        <a href="{{ route('shopee.orders.index') }}"
+           class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150
+                  {{ request()->routeIs('shopee.orders.*') ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white' }}">
+            <span class="material-symbols-outlined text-[20px]">storefront</span>
+            Pesanan Shopee
         </a>
 
         {{-- Sinkron Stok --}}

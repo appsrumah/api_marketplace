@@ -76,9 +76,7 @@ class ShopeeAuthController extends Controller
             }
 
             // ── STEP 3: Cari channel Shopee ───────────────────────────────
-            $channel = MarketplaceChannel::where('code', MarketplaceChannel::SHOPEE)
-                ->orWhere('slug', 'shopee')
-                ->first();
+            $channel = MarketplaceChannel::where('code', MarketplaceChannel::SHOPEE)->first();
 
             if (!$channel) {
                 throw new \RuntimeException(
