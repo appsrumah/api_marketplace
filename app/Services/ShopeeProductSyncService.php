@@ -73,24 +73,37 @@ class ShopeeProductSyncService
             $skipped     = 0;
 
             foreach ($chunks as $chunk) {
-                $detailResult  = $this->shopeeService->getItemBaseInfo($accessToken, $shopId, $chunk);
-                $detailItems   = $detailResult['response']['item_list'] ?? [];
+                $detailResult = $this->shopeeService->getItemBaseInfo($accessToken, $shopId, $chunk);
+                $detailItems  = $detailResult['response']['item_list'] ?? [];
 
                 foreach ($detailItems as $item) {
-                    $models = $item['model'] ?? [];
+                    $hasModel = (bool) ($item['has_model'] ?? false);
 
-                    // If item has model variations, each variation = 1 row in produk_saya
-                    if (!empty($models)) {
-                        foreach ($models as $model) {
-                            $allProducts[] = $this->mapToProduct($item, $model);
+                    if ($hasModel) {
+                        // get_item_base_info TIDAK menyertakan data varian;
+                        // panggil get_model_list secara terpisah untuk setiap item
+                        $modelResult = $this->shopeeService->getModelList(
+                            $accessToken, $shopId, (int) ($item['item_id'] ?? 0)
+                        );
+                        $models = $modelResult['response']['model'] ?? [];
+
+                        if (!empty($models)) {
+                            foreach ($models as $model) {
+                                $allProducts[] = $this->mapToProduct($item, $model);
+                            }
+                        } else {
+                            // has_model=true tapi model list kosong → simpan sebagai produk tunggal
+                            $allProducts[] = $this->mapToProduct($item, null);
                         }
+
+                        usleep(200_000); // rate limit per panggilan getModelList
                     } else {
-                        // No variation: single product entry
+                        // Tidak ada varian — satu baris produk
                         $allProducts[] = $this->mapToProduct($item, null);
                     }
                 }
 
-                usleep(200_000); // 200ms rate limiting
+                usleep(200_000); // 200ms rate limiting per batch getItemBaseInfo
             }
 
             // 4. Upsert to produk_saya
@@ -124,36 +137,49 @@ class ShopeeProductSyncService
      */
     private function mapToProduct(array $item, ?array $model): array
     {
-        $itemId   = (string) ($item['item_id'] ?? 0);
-        $modelId  = $model ? (string) ($model['model_id'] ?? 0) : '0';
-        $skuId    = $model ? "{$itemId}_{$modelId}" : "{$itemId}_0";
+        $itemId  = (string) ($item['item_id'] ?? 0);
+        $modelId = $model ? (string) ($model['model_id'] ?? 0) : '0';
+        $skuId   = $model ? "{$itemId}_{$modelId}" : "{$itemId}_0";
 
-        // Determine status
-        $status = strtoupper($item['item_status'] ?? 'NORMAL');
+        // Status: untuk varian gunakan model_status, untuk produk utama gunakan item_status
+        $rawStatus = $model
+            ? strtoupper($model['model_status'] ?? $item['item_status'] ?? 'NORMAL')
+            : strtoupper($item['item_status'] ?? 'NORMAL');
+
         $statusMap = [
-            'NORMAL'       => 'ACTIVATE',
-            'BANNED'       => 'PLATFORM_DEACTIVATED',
-            'DELETED'      => 'DELETED',
-            'UNLIST'       => 'SELLER_DEACTIVATED',
+            'NORMAL'              => 'ACTIVATE',
+            'MODEL_NORMAL'        => 'ACTIVATE',
+            'BANNED'              => 'PLATFORM_DEACTIVATED',
+            'MODEL_BANNED'        => 'PLATFORM_DEACTIVATED',
+            'DELETED'             => 'DELETED',
+            'UNLIST'              => 'SELLER_DEACTIVATED',
+            'MODEL_DELETED'       => 'DELETED',
         ];
+
+        // Stock: stock_info_v2 -> seller_stock[0] -> stock
+        $stock = $model
+            ? (int) ($model['stock_info_v2']['seller_stock'][0]['stock'] ?? 0)
+            : (int) ($item['stock_info_v2']['seller_stock'][0]['stock'] ?? 0);
+
+        // Price: price_info[0].current_price
+        $price = $model
+            ? (float) ($model['price_info'][0]['current_price'] ?? $model['price_info'][0]['original_price'] ?? 0)
+            : (float) ($item['price_info'][0]['current_price'] ?? $item['price_info'][0]['original_price'] ?? 0);
+
+        // Seller SKU: model_sku untuk varian, item_sku untuk produk tanpa varian
+        $sellerSku = $model ? ($model['model_sku'] ?? '') : ($item['item_sku'] ?? '');
 
         return [
             'product_id'     => $itemId,
             'sku_id'         => $skuId,
             'platform'       => 'SHOPEE',
             'title'          => $item['item_name'] ?? '',
-            'product_status' => $statusMap[$status] ?? $status,
-            'quantity'       => $model
-                ? (int) ($model['stock_info'][0]['current_stock'] ?? $model['normal_stock'] ?? 0)
-                : (int) ($item['stock_info'][0]['current_stock'] ?? 0),
-            'price'          => $model
-                ? (float) ($model['price_info'][0]['current_price'] ?? $model['original_price'] ?? 0)
-                : (float) ($item['price_info'][0]['current_price'] ?? 0),
-            'seller_sku'     => $model
-                ? ($model['model_sku'] ?? '')
-                : ($item['item_sku'] ?? ''),
-            'status_info'    => $status,
-            'current_status' => $statusMap[$status] ?? $status,
+            'product_status' => $statusMap[$rawStatus] ?? $rawStatus,
+            'quantity'       => $stock,
+            'price'          => $price,
+            'seller_sku'     => $sellerSku,
+            'status_info'    => $rawStatus,
+            'current_status' => $statusMap[$rawStatus] ?? $rawStatus,
         ];
     }
 

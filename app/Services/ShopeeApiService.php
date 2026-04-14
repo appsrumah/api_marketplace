@@ -211,6 +211,31 @@ class ShopeeApiService
     }
 
     /* ===================================================================
+     *  GET MODEL LIST (Varian / SKU Produk)
+     *  GET /api/v2/product/get_model_list
+     *
+     *  Response: response.model[] — setiap entry adalah 1 varian produk
+     *    model_id, model_sku, model_status, price_info[], stock_info_v2
+     * =================================================================== */
+    public function getModelList(string $accessToken, int $shopId, int $itemId): array
+    {
+        $path      = '/api/v2/product/get_model_list';
+        $timestamp = time();
+        $sign      = $this->buildShopSign($path, $timestamp, $accessToken, $shopId);
+
+        $response = Http::get($this->apiBase . $path, [
+            'partner_id'   => $this->partnerId,
+            'timestamp'    => $timestamp,
+            'sign'         => $sign,
+            'access_token' => $accessToken,
+            'shop_id'      => $shopId,
+            'item_id'      => $itemId,
+        ]);
+
+        return $response->json();
+    }
+
+    /* ===================================================================
      *  GET ORDER LIST
      *  GET /api/v2/order/get_order_list
      * =================================================================== */

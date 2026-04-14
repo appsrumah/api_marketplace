@@ -25,9 +25,9 @@ use Illuminate\Support\Facades\Log;
  *   4. Ambil stok bulk dari POS
  *   5. Push stok ke Shopee API via updateStock()
  *
- * Shopee updateStock format:
- *   - item_id   : integer
- *   - stock_list : [{ model_id: int, normal_stock: int }]
+ * Shopee updateStock format (v2 — seller_stock):
+ *   - item_id    : integer
+ *   - stock_list : [{ model_id: int, seller_stock: [{ stock: int }] }]
  *
  * Karena SKU di produk_saya: "{item_id}_{model_id}", kita parse keduanya.
  */
@@ -147,8 +147,10 @@ class SyncShopeeInventoryJob implements ShouldQueue
                 $modelId = (int) ($parts[1] ?? 0);
 
                 $stockList[] = [
-                    'model_id'     => $modelId,
-                    'normal_stock' => max(0, $qty),
+                    'model_id'    => $modelId,
+                    'seller_stock' => [
+                        ['stock' => max(0, $qty)],
+                    ],
                 ];
             }
 

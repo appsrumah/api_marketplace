@@ -430,7 +430,7 @@ class ShopeeOrderController extends Controller
             'buyer_phone'         => $recipientAddr['phone'] ?? null,
             'buyer_message'       => $apiOrder['note'] ?? $apiOrder['message_to_seller'] ?? null,
             'shipping_carrier'    => $apiOrder['shipping_carrier'] ?? null,
-            'tracking_number'     => $apiOrder['package_list'][0]['parcel_chargeable_weight_gram'] ?? ($apiOrder['tracking_no'] ?? null),
+            'tracking_number'     => $apiOrder['package_list'][0]['package_number'] ?? ($apiOrder['tracking_no'] ?? null),
             'shipping_address'    => !empty($recipientAddr) ? $recipientAddr : null,
             'total_amount'        => (float) ($apiOrder['total_amount'] ?? 0),
             'subtotal_amount'     => (float) ($apiOrder['escrow_amount'] ?? $apiOrder['total_amount'] ?? 0),
@@ -449,19 +449,17 @@ class ShopeeOrderController extends Controller
             'raw_data'            => $apiOrder,
         ];
 
-        // Get tracking from package list if available
+        // Ambil tracking number & shipping carrier dari package_list
         if (!empty($apiOrder['package_list'])) {
             foreach ($apiOrder['package_list'] as $pkg) {
-                if (!empty($pkg['logistics_status']) || !empty($pkg['shipping_carrier'])) {
-                    $updateData['tracking_number'] = $pkg['parcel_chargeable_weight_gram'] ?? $updateData['tracking_number'];
+                if (!empty($pkg['package_number'])) {
+                    $updateData['tracking_number'] = $pkg['package_number'];
+                    if (!empty($pkg['shipping_carrier'])) {
+                        $updateData['shipping_carrier'] = $pkg['shipping_carrier'];
+                    }
                     break;
                 }
             }
-        }
-
-        // Fix tracking number — get from logistics/tracking endpoint if package_list doesn't have it
-        if (empty($updateData['tracking_number']) && !empty($apiOrder['package_list'][0]['package_number'])) {
-            $updateData['tracking_number'] = null; // Will be filled via separate logistics call if needed
         }
 
         $createOnly = [
@@ -506,7 +504,7 @@ class ShopeeOrderController extends Controller
                     'quantity_purchased'     => (int) ($apiItem['model_quantity_purchased'] ?? $apiItem['quantity'] ?? 1),
                     'image_url'              => $apiItem['image_info']['image_url'] ?? ($apiItem['item_img'] ?? null),
                     'weight'                 => (float) ($apiItem['weight'] ?? 0),
-                    'is_wholesale'           => (bool) ($apiItem['is_wholesale'] ?? false),
+                    'is_wholesale'           => (bool) ($apiItem['wholesale'] ?? false),
                 ]
             );
         }
