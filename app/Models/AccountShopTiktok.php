@@ -28,6 +28,7 @@ class AccountShopTiktok extends Model
         'last_sync_at',
         'id_outlet',          // ← ID outlet di sistem POS (legacy; gunakan warehouse_id)
         'last_update_stock',  // ← Waktu terakhir stok di-push ke TikTok
+        'telp_notif',         // ← Nomor WA untuk notifikasi order baru (pisah koma untuk multi)
     ];
 
     protected function casts(): array

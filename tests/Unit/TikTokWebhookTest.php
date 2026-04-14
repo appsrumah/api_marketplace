@@ -103,7 +103,7 @@ class TikTokWebhookTest extends TestCase
         $response = $this->postJson('/webhooks/tiktok/customer-service', $payload);
 
         $response->assertStatus(200)
-                 ->assertJson(['code' => 0, 'message' => 'OK']);
+            ->assertJson(['code' => 0, 'message' => 'OK']);
 
         // Pastikan raw payload disimpan
         $this->assertDatabaseHas('tiktok_webhook_logs', [
@@ -399,12 +399,16 @@ class TikTokWebhookTest extends TestCase
 
         // Proses 2x
         $log1 = TikTokWebhookLog::create([
-            'event_type' => 14, 'event_name' => 'NEW_MESSAGE',
-            'raw_payload' => $payload, 'process_status' => 'pending',
+            'event_type' => 14,
+            'event_name' => 'NEW_MESSAGE',
+            'raw_payload' => $payload,
+            'process_status' => 'pending',
         ]);
         $log2 = TikTokWebhookLog::create([
-            'event_type' => 14, 'event_name' => 'NEW_MESSAGE',
-            'raw_payload' => $payload, 'process_status' => 'pending',
+            'event_type' => 14,
+            'event_name' => 'NEW_MESSAGE',
+            'raw_payload' => $payload,
+            'process_status' => 'pending',
         ]);
 
         $service->handleWebhook($payload, $log1);
@@ -441,8 +445,10 @@ class TikTokWebhookTest extends TestCase
         ];
 
         $log = TikTokWebhookLog::create([
-            'event_type' => 14, 'event_name' => 'NEW_MESSAGE',
-            'raw_payload' => $payload, 'process_status' => 'pending',
+            'event_type' => 14,
+            'event_name' => 'NEW_MESSAGE',
+            'raw_payload' => $payload,
+            'process_status' => 'pending',
         ]);
 
         $service = app(TikTokCustomerService::class);

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Services\WablasService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -18,6 +19,10 @@ use Illuminate\Support\Facades\Log;
  */
 class PosOrderService
 {
+    public function __construct(
+        private WablasService $wablas = new WablasService()
+    ) {}
+
     private function pos()
     {
         return DB::connection('pos');
@@ -169,6 +174,17 @@ class PosOrderService
                 'synced_to_pos_at' => now(),
                 'pos_order_id'     => (string) $idSo,
             ]);
+
+            // ── Kirim notifikasi WhatsApp via Wablas ──────────────────────────
+            // (fire-and-forget: gagal kirim WA tidak membatalkan transaksi)
+            try {
+                $this->wablas->sendNewOrderNotification($order, $idSo, $subtotal);
+            } catch (\Throwable $notifErr) {
+                Log::warning('PosOrderService: Gagal kirim notif WA', [
+                    'order_id' => $order->order_id,
+                    'error'    => $notifErr->getMessage(),
+                ]);
+            }
 
             $message = "Berhasil push ke POS — SO ID: {$idSo}, subtotal: Rp " . number_format($subtotal, 0, ',', '.');
             if ($skippedItems > 0) {

@@ -14,9 +14,9 @@ return new class extends Migration
             // FK ke account_shop_tiktok (multi-shop support)
             $table->unsignedBigInteger('account_id');
             $table->foreign('account_id')
-                  ->references('id')
-                  ->on('account_shop_tiktok')
-                  ->cascadeOnDelete();
+                ->references('id')
+                ->on('account_shop_tiktok')
+                ->cascadeOnDelete();
 
             // Conversation ID unik dari TikTok
             $table->string('conversation_id', 100)->index();
@@ -28,14 +28,14 @@ return new class extends Migration
 
             // Status percakapan
             $table->string('status', 30)->default('active')
-                  ->comment('active, archived, closed');
+                ->comment('active, archived, closed');
 
             // Assigned agent CS (nullable = belum di-assign)
             $table->unsignedBigInteger('assigned_agent_id')->nullable();
             $table->foreign('assigned_agent_id')
-                  ->references('id')
-                  ->on('users')
-                  ->nullOnDelete();
+                ->references('id')
+                ->on('users')
+                ->nullOnDelete();
 
             // Unread counter untuk agent
             $table->unsignedInteger('unread_count')->default(0);

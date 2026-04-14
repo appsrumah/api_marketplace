@@ -518,7 +518,7 @@ class TikTokCustomerService
             ]);
             throw new \RuntimeException(
                 'TikTok CS Send Message Error [' . ($data['code'] ?? '?') . ']: '
-                . ($data['message'] ?? 'Unknown error')
+                    . ($data['message'] ?? 'Unknown error')
             );
         }
 
@@ -607,12 +607,12 @@ class TikTokCustomerService
     {
         return match ($contentType) {
             'text'         => $contentData['text']['text']
-                              ?? $contentData['text']
-                              ?? ($contentData['content'] ?? null),
+                ?? $contentData['text']
+                ?? ($contentData['content'] ?? null),
             'image'        => $contentData['image']['url']
-                              ?? ($contentData['image_url'] ?? json_encode($contentData)),
+                ?? ($contentData['image_url'] ?? json_encode($contentData)),
             'video'        => $contentData['video']['url']
-                              ?? ($contentData['video_url'] ?? json_encode($contentData)),
+                ?? ($contentData['video_url'] ?? json_encode($contentData)),
             'product_card' => json_encode($contentData['product_card'] ?? $contentData),
             'order_card'   => json_encode($contentData['order_card'] ?? $contentData),
             'emoji'        => $contentData['emoji']['code'] ?? ($contentData['emoji'] ?? null),

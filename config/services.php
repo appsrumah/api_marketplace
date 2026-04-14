@@ -51,4 +51,10 @@ return [
         'redirect_url' => env('SHOPEE_REDIRECT_URL'),
     ],
 
+    'wablas' => [
+        'base_url'   => env('WABLAS_BASE_URL', 'https://pati.wablas.com'),
+        'token'      => env('WABLAS_TOKEN', ''),
+        'secret_key' => env('WABLAS_SECRET_KEY', ''),
+    ],
+
 ];
