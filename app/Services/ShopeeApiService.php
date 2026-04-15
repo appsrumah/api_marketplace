@@ -283,23 +283,27 @@ class ShopeeApiService
         $timestamp = time();
         $sign      = $this->buildShopSign($path, $timestamp, $accessToken, $shopId);
 
-        $response = Http::timeout(30)->connectTimeout(15)->post(
-            $this->apiBase . $path . '?' . http_build_query([
-                'partner_id'   => $this->partnerId,
-                'timestamp'    => $timestamp,
-                'sign'         => $sign,
-                'access_token' => $accessToken,
-                'shop_id'      => $shopId,
-            ]),
-            [
-                'item_id'    => $itemId,
-                'stock_list' => $stockList,
-            ]
-        );
+        try {
+            $response = Http::timeout(60)->connectTimeout(30)->post(
+                $this->apiBase . $path . '?' . http_build_query([
+                    'partner_id'   => $this->partnerId,
+                    'timestamp'    => $timestamp,
+                    'sign'         => $sign,
+                    'access_token' => $accessToken,
+                    'shop_id'      => $shopId,
+                ]),
+                [
+                    'item_id'    => $itemId,
+                    'stock_list' => $stockList,
+                ]
+            );
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('Shopee updateStock connection error', ['shop_id'=>$shopId,'item_id'=>$itemId,'err'=>$e->getMessage()]);
+            throw new \RuntimeException('Connection to Shopee API failed: ' . $e->getMessage());
+        }
 
         $data = $response->json() ?? [];
 
-        // ✅ Cek error dari Shopee API — tanpa ini, response error dianggap "success"
         if (!empty($data['error']) && $data['error'] !== '') {
             Log::warning('Shopee updateStock API error', [
                 'item_id'  => $itemId,
