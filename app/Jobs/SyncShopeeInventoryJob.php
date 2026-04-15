@@ -29,7 +29,8 @@ use Illuminate\Support\Facades\Log;
  *   - item_id    : integer
  *   - stock_list : [{ model_id: int, seller_stock: [{ stock: int }] }]
  *
- * Karena SKU di produk_saya: "{item_id}_{model_id}", kita parse keduanya.
+ * Karena sku_id di produk_saya sekarang = model_id (untuk varian) atau item_id (single-SKU),
+ * cukup bandingkan sku_id == product_id untuk menentukan apakah ini varian atau tidak.
  */
 class SyncShopeeInventoryJob implements ShouldQueue
 {
@@ -142,9 +143,11 @@ class SyncShopeeInventoryJob implements ShouldQueue
                 $i++;
                 $qty = $stockMap[$product->seller_sku] ?? 0;
 
-                // Parse model_id from sku_id format: "{item_id}_{model_id}"
-                $parts   = explode('_', $product->sku_id);
-                $modelId = (int) ($parts[1] ?? 0);
+                // sku_id sekarang = model_id (varian) atau item_id (single-SKU)
+                // Jika sku_id == product_id → produk tanpa varian → model_id = 0
+                // Jika sku_id != product_id → sku_id IS the model_id langsung
+                $isVariant = (string) $product->sku_id !== (string) $product->product_id;
+                $modelId   = $isVariant ? (int) $product->sku_id : 0;
 
                 $stockList[] = [
                     'model_id'    => $modelId,

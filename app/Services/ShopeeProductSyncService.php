@@ -83,7 +83,9 @@ class ShopeeProductSyncService
                         // get_item_base_info TIDAK menyertakan data varian;
                         // panggil get_model_list secara terpisah untuk setiap item
                         $modelResult = $this->shopeeService->getModelList(
-                            $accessToken, $shopId, (int) ($item['item_id'] ?? 0)
+                            $accessToken,
+                            $shopId,
+                            (int) ($item['item_id'] ?? 0)
                         );
                         $models = $modelResult['response']['model'] ?? [];
 
@@ -137,9 +139,10 @@ class ShopeeProductSyncService
      */
     private function mapToProduct(array $item, ?array $model): array
     {
-        $itemId  = (string) ($item['item_id'] ?? 0);
-        $modelId = $model ? (string) ($model['model_id'] ?? 0) : '0';
-        $skuId   = $model ? "{$itemId}_{$modelId}" : "{$itemId}_0";
+        $itemId  = (string) ($item['item_id'] ?? '0');
+        $modelId = $model ? (string) ($model['model_id'] ?? '') : '';
+        // Use `model_id` as sku identifier for variant rows, otherwise use item_id for single-SKU products.
+        $skuId   = $model ? $modelId : $itemId;
 
         // Status: untuk varian gunakan model_status, untuk produk utama gunakan item_status
         $rawStatus = $model
@@ -156,10 +159,13 @@ class ShopeeProductSyncService
             'MODEL_DELETED'       => 'DELETED',
         ];
 
-        // Stock: stock_info_v2 -> seller_stock[0] -> stock
-        $stock = $model
-            ? (int) ($model['stock_info_v2']['seller_stock'][0]['stock'] ?? 0)
-            : (int) ($item['stock_info_v2']['seller_stock'][0]['stock'] ?? 0);
+        // Stock: prefer seller_stock (actual seller quantity); fallback to shopee_stock if seller_stock empty.
+        $stock = 0;
+        if ($model) {
+            $stock = (int) ($model['stock_info_v2']['seller_stock'][0]['stock'] ?? $model['stock_info_v2']['shopee_stock'][0]['stock'] ?? 0);
+        } else {
+            $stock = (int) ($item['stock_info_v2']['seller_stock'][0]['stock'] ?? $item['stock_info_v2']['shopee_stock'][0]['stock'] ?? 0);
+        }
 
         // Price: price_info[0].current_price
         $price = $model

@@ -20,21 +20,29 @@
 
 ## ⚙️ Cron Jobs yang Diperlukan
 
-### 1. Queue Worker — Jalankan setiap 1 menit
-Worker yang memproses `SyncAccountInventoryJob` dari antrian.
+### 1. Queue Worker TikTok — Jalankan setiap 1 menit
+Worker yang memproses `SyncAccountInventoryJob` (TikTok/Tokopedia) dari antrian.
 
 ```bash
 * * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=tiktok-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
 ```
 
+### 1b. Queue Worker Shopee — Jalankan setiap 1 menit
+Worker yang memproses `SyncShopeeInventoryJob` dari antrian.
+
+> ⚠️ **Ini adalah penyebab job Shopee stuck!** Jika cron ini tidak ada,  
+> job `shopee-inventory` akan menumpuk di tabel `jobs` dengan `reserved_at = NULL`  
+> dan tidak pernah diproses.
+
+```bash
+* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=shopee-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
+```
+
 > **`--max-jobs=1`** → setiap cron spawn 1 worker PHP, ambil tepat 1 job, lalu proses selesai.  
-> Cocok untuk `SyncAccountInventoryJob` yang bisa jalan 5–15 menit:  
+> Cocok untuk `SyncShopeeInventoryJob` yang bisa jalan 5–15 menit:  
 > - Menit ke-0: worker 1 → job akun A (~10 menit)  
 > - Menit ke-1: worker 2 → job akun B (~10 menit)  
-> - Menit ke-2: worker 3 → job akun C (~10 menit)  
-> - Menit ke-3+: worker baru start, queue kosong (guard skip), langsung stop ✅  
->
-> **Jangan pakai `--max-time=55`** untuk job ini — job `SyncAccountInventoryJob` butuh waktu lebih dari 55 detik untuk ribuan SKU. `--max-time` tidak kill job yang sedang berjalan, tapi lebih aman dihindari agar tidak ada asumsi keliru.
+> - Menit ke-3+: worker baru start, queue kosong, langsung stop ✅
 
 ---
 
@@ -73,6 +81,7 @@ Refresh access token sebelum expired.
 
 ```
 * * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=tiktok-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
+* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=shopee-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
 */15 * * * * curl -s "https://app.oleh2indonesia.com/stock/cron-sync-all?secret=kiosq_stock_sync_2026" > /dev/null 2>&1
 0 3 * * * curl -s "https://app.oleh2indonesia.com/stock/cron-sync-all?secret=kiosq_stock_sync_2026&sync_products=1" > /dev/null 2>&1
 0 * * * * curl -s "https://app.oleh2indonesia.com/tiktok/cron-refresh-token?secret=kiosq_stock_sync_2026" > /dev/null 2>&1

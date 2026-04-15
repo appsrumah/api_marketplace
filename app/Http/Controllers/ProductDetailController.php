@@ -87,7 +87,7 @@ class ProductDetailController extends Controller
                     'id' => $m['model_id'] ?? null,
                     'seller_sku' => $m['model_sku'] ?? null,
                     'price' => $m['price_info'][0]['current_price'] ?? $m['price_info'][0]['original_price'] ?? null,
-                    'stock' => $m['stock_info_v2']['seller_stock'][0]['stock'] ?? 0,
+                    'stock' => $m['stock_info_v2']['seller_stock'][0]['stock'] ?? $m['stock_info_v2']['shopee_stock'][0]['stock'] ?? 0,
                     'status_info' => ['status' => $m['model_status'] ?? null],
                 ];
             }
@@ -97,7 +97,7 @@ class ProductDetailController extends Controller
                 'id' => $item['item_id'] ?? $productId,
                 'seller_sku' => $item['item_sku'] ?? null,
                 'price' => $item['price_info'][0]['current_price'] ?? $item['price_info'][0]['original_price'] ?? null,
-                'stock' => $item['stock_info_v2']['seller_stock'][0]['stock'] ?? 0,
+                'stock' => $item['stock_info_v2']['seller_stock'][0]['stock'] ?? $item['stock_info_v2']['shopee_stock'][0]['stock'] ?? 0,
                 'status_info' => ['status' => $item['item_status'] ?? null],
             ];
         }
