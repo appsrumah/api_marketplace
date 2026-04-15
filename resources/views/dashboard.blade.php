@@ -63,7 +63,7 @@
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_tiktok']) }}</p>
             <div class="mt-3 flex items-center gap-2">
                 <div class="flex h-7 w-7 items-center justify-center rounded-lg" style="background:#fe2c5510;">
-                    <img src="{{ asset('images/tiktok.jpg') }}" alt="TikTok" class="h-4 w-4 object-contain rounded" />
+                    <img src="{{ asset('images/tiktok.svg') }}" alt="TikTok" class="h-4 w-4 object-contain rounded" />
                 </div>
                 <p class="text-xs text-on-surface-variant">Di TikTok Shop</p>
             </div>
@@ -75,7 +75,7 @@
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_tokopedia']) }}</p>
         <div class="mt-3 flex items-center gap-2">
             <div class="flex h-7 w-7 items-center justify-center rounded-lg" style="background:#03ac0e10;">
-                <img src="{{ asset('images/tokopedia.png') }}" alt="Tokopedia" class="h-4 w-4 object-contain rounded" />
+                <img src="{{ asset('images/tokopedia.svg') }}" alt="Tokopedia" class="h-4 w-4 object-contain rounded" />
             </div>
             <p class="text-xs text-on-surface-variant">Di Tokopedia</p>
         </div>
@@ -87,7 +87,7 @@
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_shopee']) }}</p>
         <div class="mt-3 flex items-center gap-2">
             <div class="flex h-7 w-7 items-center justify-center rounded-lg" style="background:#ee4d2d10;">
-                <img src="{{ asset('images/shopee.png') }}" alt="Shopee" class="h-4 w-4 object-contain rounded" />
+                <img src="{{ asset('images/shopee.svg') }}" alt="Shopee" class="h-4 w-4 object-contain rounded" />
             </div>
             <p class="text-xs text-on-surface-variant">Di Shopee</p>
         </div>
