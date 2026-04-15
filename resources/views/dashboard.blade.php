@@ -61,12 +61,12 @@
     <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-5 shadow-whisper">
         <p class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Produk TikTok</p>
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_tiktok']) }}</p>
-        <div class="mt-3 flex items-center gap-2">
-            <div class="flex h-7 w-7 items-center justify-center rounded-lg" style="background:#fe2c5510;">
-                <svg class="h-4 w-4" fill="#fe2c55" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.11v-3.5a6.37 6.37 0 00-.79-.05A6.34 6.34 0 003.15 15.2a6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.34-6.34V8.75a8.18 8.18 0 004.76 1.52V6.82a4.83 4.83 0 01-1-.13z"/></svg>
+            <div class="mt-3 flex items-center gap-2">
+                <div class="flex h-7 w-7 items-center justify-center rounded-lg" style="background:#fe2c5510;">
+                    <img src="{{ asset('images/tiktok.jpg') }}" alt="TikTok" class="h-4 w-4 object-contain rounded" />
+                </div>
+                <p class="text-xs text-on-surface-variant">Di TikTok Shop</p>
             </div>
-            <p class="text-xs text-on-surface-variant">Di TikTok Shop</p>
-        </div>
     </div>
 
     {{-- Tokopedia --}}
@@ -75,7 +75,7 @@
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_tokopedia']) }}</p>
         <div class="mt-3 flex items-center gap-2">
             <div class="flex h-7 w-7 items-center justify-center rounded-lg" style="background:#03ac0e10;">
-                <svg class="h-4 w-4" fill="#03ac0e" viewBox="0 0 24 24"><path d="M12 2C8.74 2 6.45 4.57 6.07 5.88H4.5a2 2 0 00-2 2v10.25a3.87 3.87 0 003.87 3.87h11.26a3.87 3.87 0 003.87-3.87V7.88a2 2 0 00-2-2h-1.57C17.55 4.57 15.26 2 12 2zm0 1.5c2.2 0 3.75 1.73 4.07 2.38H7.93C8.25 5.23 9.8 3.5 12 3.5zm0 5a3.5 3.5 0 110 7 3.5 3.5 0 010-7zm0 1.5a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                <img src="{{ asset('images/tokopedia.png') }}" alt="Tokopedia" class="h-4 w-4 object-contain rounded" />
             </div>
             <p class="text-xs text-on-surface-variant">Di Tokopedia</p>
         </div>
@@ -87,7 +87,7 @@
         <p class="mt-2 font-headline text-3xl font-extrabold text-on-surface">{{ number_format($stats['total_shopee']) }}</p>
         <div class="mt-3 flex items-center gap-2">
             <div class="flex h-7 w-7 items-center justify-center rounded-lg" style="background:#ee4d2d10;">
-                <svg class="h-4 w-4" fill="#ee4d2d" viewBox="0 0 24 24"><path d="M12 2a5 5 0 00-5 5H5a2 2 0 00-2 2v11a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-2a5 5 0 00-5-5zm0 2a3 3 0 013 3H9a3 3 0 013-3zm-5 5h10v9H7V9z"/></svg>
+                <img src="{{ asset('images/shopee.png') }}" alt="Shopee" class="h-4 w-4 object-contain rounded" />
             </div>
             <p class="text-xs text-on-surface-variant">Di Shopee</p>
         </div>
