@@ -312,13 +312,145 @@ class TiktokApiService
 
         $data = $response->json();
 
+        // Handle error cases — in particular multiple warehouses detected
         if (($data['code'] ?? -1) !== 0) {
-            Log::error('TikTok updateInventory failed', [
+            Log::warning('TikTok updateInventory failed (initial attempt)', [
                 'product_id' => $productId,
                 'sku_id'     => $skuId,
                 'quantity'   => $quantity,
                 'response'   => $data,
             ]);
+
+            // Specific error: multiple warehouses detected — attempt to retry
+            // with explicit per-warehouse inventory entries if possible.
+            $errorCode = $data['code'] ?? null;
+            if ($errorCode == 12019028) {
+                // Try to extract warehouses from API response
+                $warehouses = [];
+
+                // Common response shapes to inspect
+                if (!empty($data['data']['warehouses'])) {
+                    $warehouses = $data['data']['warehouses'];
+                } elseif (!empty($data['data']['warehouse_list'])) {
+                    $warehouses = $data['data']['warehouse_list'];
+                } elseif (!empty($data['extra']['warehouses'])) {
+                    $warehouses = $data['extra']['warehouses'];
+                }
+
+                // Fallback: fetch product detail to obtain warehouse info
+                if (empty($warehouses)) {
+                    try {
+                        $detail = $this->getProductDetail($accessToken, $shopCipher, $productId);
+                        // product detail may contain warehouses under skus -> inventory or warehouse_info
+                        if (!empty($detail['skus'])) {
+                            foreach ($detail['skus'] as $s) {
+                                if (!empty($s['warehouses'])) {
+                                    $warehouses = $s['warehouses'];
+                                    break;
+                                }
+                                if (!empty($s['inventory']) && is_array($s['inventory'])) {
+                                    // inventory entries may have warehouse_id
+                                    $warehouses = array_map(function ($inv) {
+                                        return $inv;
+                                    }, $s['inventory']);
+                                    break;
+                                }
+                            }
+                        }
+                        if (empty($warehouses) && !empty($detail['warehouse_info'])) {
+                            $warehouses = $detail['warehouse_info'];
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to fetch product detail for warehouse info', ['error' => $e->getMessage()]);
+                    }
+                }
+
+                // Normalize warehouse IDs and retry if we found anything
+                $warehouseIds = [];
+                if (!empty($warehouses)) {
+                    foreach ($warehouses as $w) {
+                        if (is_array($w)) {
+                            if (!empty($w['warehouse_id'])) {
+                                $warehouseIds[] = $w['warehouse_id'];
+                            } elseif (!empty($w['id'])) {
+                                $warehouseIds[] = $w['id'];
+                            } elseif (!empty($w['warehouseCode'])) {
+                                $warehouseIds[] = $w['warehouseCode'];
+                            }
+                        } elseif (is_string($w) || is_numeric($w)) {
+                            $warehouseIds[] = (string) $w;
+                        }
+                    }
+                }
+
+                $warehouseIds = array_values(array_unique(array_filter($warehouseIds)));
+
+                if (!empty($warehouseIds)) {
+                    // Build inventory entries per warehouse with the same requested quantity
+                    $inventories = [];
+                    foreach ($warehouseIds as $wid) {
+                        $inventories[] = [
+                            'warehouse_id' => $wid,
+                            'quantity'     => $quantity,
+                        ];
+                    }
+
+                    $retryBody = [
+                        'skus' => [
+                            [
+                                'id'        => $skuId,
+                                'inventory' => $inventories,
+                            ],
+                        ],
+                    ];
+
+                    $retryJson = json_encode($retryBody);
+                    $retrySign = $this->buildSign($path, $queryParams, $retryJson);
+                    $queryParams['sign'] = $retrySign;
+                    $queryParams['access_token'] = $accessToken;
+                    $retryUrl = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+                    Log::info('Retrying TikTok updateInventory with per-warehouse entries', [
+                        'product_id'   => $productId,
+                        'sku_id'       => $skuId,
+                        'warehouse_ids'=> $warehouseIds,
+                        'quantity'     => $quantity,
+                    ]);
+
+                    $retryResp = Http::timeout(30)
+                        ->withHeaders([
+                            'Content-Type'       => 'application/json',
+                            'x-tts-access-token' => $accessToken,
+                        ])
+                        ->withBody($retryJson, 'application/json')
+                        ->post($retryUrl);
+
+                    $retryData = $retryResp->json();
+                    if (($retryData['code'] ?? -1) === 0) {
+                        Log::info('TikTok updateInventory retry success', [
+                            'product_id' => $productId,
+                            'sku_id'     => $skuId,
+                            'quantity'   => $quantity,
+                            'warehouses' => $warehouseIds,
+                        ]);
+                        return $retryData['data'] ?? [];
+                    }
+
+                    Log::error('TikTok updateInventory retry failed', [
+                        'product_id' => $productId,
+                        'sku_id'     => $skuId,
+                        'quantity'   => $quantity,
+                        'response'   => $retryData,
+                    ]);
+
+                    throw new \RuntimeException(
+                        'TikTok Update Inventory Error [' . ($retryData['code'] ?? '?') . ']: '
+                            . ($retryData['message'] ?? 'Unknown error')
+                    );
+                }
+            }
+
+            // Generic error fallback
             throw new \RuntimeException(
                 'TikTok Update Inventory Error [' . ($data['code'] ?? '?') . ']: '
                     . ($data['message'] ?? 'Unknown error')

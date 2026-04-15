@@ -380,9 +380,9 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                                 <h3 class="truncate text-sm font-bold text-on-surface">{{ $account->seller_name }}</h3>
                                 <div class="flex items-center gap-1.5">
                                     @if($account->platform === 'SHOPEE')
-                                        <span class="inline-flex rounded bg-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-white">Shopee</span>
+                                        <span class="inline-flex rounded bg-orange-500 px-1.5 py-0.5 text-[9px] font-bold text-black">Shopee</span>
                                     @else
-                                        <span class="inline-flex rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-white">TikTok</span>
+                                        <span class="inline-flex rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-black">TikTok</span>
                                     @endif
                                     <span class="text-[10px] text-on-surface-variant">Outlet: {{ $account->id_outlet ?? '—' }}</span>
                                 </div>
@@ -614,6 +614,7 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 function stockSync() {
     return {
@@ -710,6 +711,37 @@ function stockSync() {
                 const data = await response.json();
                 this.result = data;
                 this.result._action = action;
+
+                // SweetAlert notifications
+                try {
+                    if (this.result && this.result.status === 'ERROR') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: this.result.pesan || this.result.message || 'Terjadi error saat proses.',
+                        });
+                    } else if (this.result && this.result.status === 'Jobs dispatched' && this.result.account) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Jobs dispatched',
+                            text: (this.result.queued || 0) + ' jobs untuk akun ' + (this.result.account || ''),
+                            timer: 3000,
+                            showConfirmButton: false,
+                        });
+                    } else if (this.result && this.result.status === 'selesai') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Selesai',
+                            text: this.result.info || 'Proses selesai.',
+                            timer: 2000,
+                            showConfirmButton: false,
+                        });
+                    }
+                } catch (swErr) {
+                    // ignore Swal errors
+                    console.warn('Swal error', swErr);
+                }
+
             } catch (e) {
                 this.error = 'Network error: ' + e.message;
             } finally {
