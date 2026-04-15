@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Temporary worker runner (public/run_worker_once.php)
  * Usage: https://your-domain/run_worker_once.php?secret=YOUR_SECRET

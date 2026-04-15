@@ -20,29 +20,22 @@
 
 ## ⚙️ Cron Jobs yang Diperlukan
 
-### 1. Queue Worker TikTok — Jalankan setiap 1 menit
-Worker yang memproses `SyncAccountInventoryJob` (TikTok/Tokopedia) dari antrian.
+### 1. Queue Worker (TikTok + Shopee) — Jalankan setiap 1 menit
+Satu cron untuk memproses **kedua queue** (`tiktok-inventory` dan `shopee-inventory`) secara bergantian.
+
+Gunakan **`queue-worker.php`** (bukan `php artisan` langsung) karena di shared hosting cPanel, binary `php` di cron PATH sering bukan PHP 8.x yang benar.
 
 ```bash
-* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=tiktok-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
+* * * * * curl -s "https://app.oleh2indonesia.com/queue-worker.php?secret=kiosq_stock_sync_2026" > /dev/null 2>&1
 ```
 
-### 1b. Queue Worker Shopee — Jalankan setiap 1 menit
-Worker yang memproses `SyncShopeeInventoryJob` dari antrian.
+> **Cara kerja:**
+> - Setiap menit curl memanggil `queue-worker.php`
+> - File tersebut langsung kirim response ke curl (< 1 detik), lalu lanjut proses **1 job** dari queue `tiktok-inventory,shopee-inventory` di background
+> - Laravel memilih job dengan prioritas: TikTok lebih dulu, Shopee berikutnya
+> - `--max-jobs=1` → 1 job per panggilan, aman untuk timeout shared hosting
 
-> ⚠️ **Ini adalah penyebab job Shopee stuck!** Jika cron ini tidak ada,  
-> job `shopee-inventory` akan menumpuk di tabel `jobs` dengan `reserved_at = NULL`  
-> dan tidak pernah diproses.
-
-```bash
-* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=shopee-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
-```
-
-> **`--max-jobs=1`** → setiap cron spawn 1 worker PHP, ambil tepat 1 job, lalu proses selesai.  
-> Cocok untuk `SyncShopeeInventoryJob` yang bisa jalan 5–15 menit:  
-> - Menit ke-0: worker 1 → job akun A (~10 menit)  
-> - Menit ke-1: worker 2 → job akun B (~10 menit)  
-> - Menit ke-3+: worker baru start, queue kosong, langsung stop ✅
+> ⚠️ **Penyebab job Shopee stuck sebelumnya:** file `queue-worker.php` hanya memproses `tiktok-inventory`. Sudah diperbaiki — sekarang memproses kedua queue sekaligus.
 
 ---
 
@@ -80,8 +73,7 @@ Refresh access token sebelum expired.
 ## 📋 Ringkasan Semua Cron (Copy-Paste ke cPanel)
 
 ```
-* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=tiktok-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
-* * * * * cd /home/olen6374/public_html/app.oleh2indonesia.com && php artisan queue:work --queue=shopee-inventory --max-jobs=1 --tries=2 >> /dev/null 2>&1
+* * * * * curl -s "https://app.oleh2indonesia.com/queue-worker.php?secret=kiosq_stock_sync_2026" > /dev/null 2>&1
 */15 * * * * curl -s "https://app.oleh2indonesia.com/stock/cron-sync-all?secret=kiosq_stock_sync_2026" > /dev/null 2>&1
 0 3 * * * curl -s "https://app.oleh2indonesia.com/stock/cron-sync-all?secret=kiosq_stock_sync_2026&sync_products=1" > /dev/null 2>&1
 0 * * * * curl -s "https://app.oleh2indonesia.com/tiktok/cron-refresh-token?secret=kiosq_stock_sync_2026" > /dev/null 2>&1

@@ -16,7 +16,7 @@
  * 4. Proses 1 job dari queue tiktok-inventory
  * 5. Selesai → proses PHP mati
  *
- * CRON (tiap menit):
+ * CRON (tiap menit) — 1 baris untuk TikTok + Shopee sekaligus:
  * * * * * curl -s "https://app.oleh2indonesia.com/queue-worker.php?secret=kiosq_stock_sync_2026" > /dev/null 2>&1
  *
  * KEAMANAN: Dilindungi oleh secret key.
@@ -72,16 +72,16 @@ use Illuminate\Support\Facades\Log;
 // ── 4. Cek apakah ada job di queue ───────────────────────────────────────
 try {
     $jobCount = DB::table('jobs')
-        ->where('queue', 'tiktok-inventory')
+        ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
         ->whereNull('reserved_at')
         ->count();
 
     if ($jobCount === 0) {
-        Log::debug('queue-worker.php: Queue kosong, tidak ada yang diproses.');
+        Log::debug('queue-worker.php: Queue kosong (tiktok + shopee), tidak ada yang diproses.');
         exit;
     }
 
-    Log::info("queue-worker.php: {$jobCount} job menunggu. Memproses 1 job...");
+    Log::info("queue-worker.php: {$jobCount} job menunggu (tiktok+shopee). Memproses 1 job...");
 } catch (\Throwable $e) {
     Log::error('queue-worker.php: Gagal cek jobs table: ' . $e->getMessage());
     exit;
@@ -90,7 +90,7 @@ try {
 // ── 5. Proses 1 job ─────────────────────────────────────────────────────
 try {
     $exitCode = Artisan::call('queue:work', [
-        '--queue'    => 'tiktok-inventory',
+        '--queue'    => 'tiktok-inventory,shopee-inventory', // proses keduanya, TikTok diprioritaskan
         '--max-jobs' => 1,       // 1 job per panggilan — aman untuk timeout
         '--tries'    => 2,
         '--timeout'  => 540,     // 9 menit max per job (di bawah set_time_limit)
@@ -98,7 +98,7 @@ try {
     ]);
 
     $output    = trim(Artisan::output());
-    $remaining = DB::table('jobs')->where('queue', 'tiktok-inventory')->count();
+    $remaining = DB::table('jobs')->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])->count();
     $elapsed   = round(microtime(true) - LARAVEL_START, 1);
 
     Log::info("queue-worker.php: Selesai dalam {$elapsed}s", [
