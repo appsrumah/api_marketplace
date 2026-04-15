@@ -162,6 +162,7 @@
                 <thead>
                     <tr class="border-b border-outline-variant/20 bg-surface-container-low">
                         <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">#</th>
+                        <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Platform</th>
                         <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Order ID</th>
                         <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Pembeli</th>
                         <th class="px-4 py-3 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Toko</th>
@@ -179,68 +180,19 @@
                             <td class="px-4 py-3 font-mono text-xs text-on-surface-variant">
                                 {{ ($orders->currentPage() - 1) * $orders->perPage() + $loop->iteration }}
                             </td>
-                            <td class="px-4 py-3">
-                                <a href="{{ route('orders.show', $order) }}" class="font-mono text-xs font-semibold text-primary hover:underline">
-                                    {{ \Illuminate\Support\Str::limit($order->order_id, 18) }}
-                                </a>
-                            </td>
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-on-surface">{{ $order->buyer_name ?: '-' }}</p>
-                            </td>
-                            <td class="px-4 py-3">
-                                <span class="text-xs text-on-surface-variant">{{ $order->account?->shop_name ?: $order->account?->seller_name ?: '-' }}</span>
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="inline-flex min-w-6 items-center justify-center rounded-lg bg-surface-container px-2 py-0.5 text-xs font-bold text-on-surface">
-                                    {{ $order->items_count ?? $order->items->count() }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <span class="font-semibold text-on-surface">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</span>
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $order->status_color }}">
-                                    {{ $order->status_label }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">
-                                @if($order->tracking_number)
-                                    <p class="font-mono text-xs text-on-surface">{{ $order->tracking_number }}</p>
-                                    <p class="text-[10px] text-on-surface-variant">{{ $order->shipping_provider }}</p>
+
+                            <td class="px-4 py-3 text-xs">
+                                @php $plat = $order->platform ?: ($order->account->platform ?? null); @endphp
+                                @if($plat === 'TIKTOK')
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-primary-fixed px-2.5 py-1 text-xs font-semibold text-primary">TikTok</span>
+                                @elseif($plat === 'SHOPEE')
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-semibold text-white">Shopee</span>
                                 @else
-                                    <span class="text-xs text-on-surface-variant/50">-</span>
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-surface-container px-2.5 py-1 text-xs font-semibold text-on-surface-variant">Lainnya</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3">
-                                @if($order->tiktok_create_time)
-                                    <span class="text-xs text-on-surface-variant">{{ $order->created_at_tiktok?->format('d/m/Y H:i') }}</span>
-                                @else
-                                    <span class="text-xs text-on-surface-variant/60">{{ $order->created_at?->format('d/m/Y H:i') }}</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                <div class="flex items-center justify-center gap-1.5">
-                                    <a href="{{ route('orders.show', $order) }}"
-                                       class="inline-flex items-center gap-1 rounded-lg bg-primary-fixed px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary-fixed/70">
-                                        <span class="material-symbols-outlined text-[14px]">visibility</span>
-                                        Detail
-                                    </a>
-                                    @if($order->is_synced_to_pos)
-                                        <span title="Sudah di-sync ke POS (SO: {{ $order->pos_order_id }})"
-                                              class="inline-flex cursor-default items-center rounded-lg bg-secondary-container p-1.5 text-on-secondary-container">
-                                            <span class="material-symbols-outlined text-[14px]">check_circle</span>
-                                        </span>
-                                    @elseif(!in_array($order->order_status, ['UNPAID', 'CANCELLED']))
-                                        <form method="POST" action="{{ route('orders.push-pos', $order) }}">
-                                            @csrf
-                                            <button type="submit" title="Push ke POS"
-                                                    class="inline-flex items-center rounded-lg bg-secondary-container/40 p-1.5 text-secondary transition hover:bg-secondary-container">
-                                                <span class="material-symbols-outlined text-[14px]">cloud_upload</span>
-                                            </button>
-                                        </form>
-                                    @endif
-                                </div>
-                            </td>
+
+                            {{-- ...existing code... --}}
                         </tr>
                     @endforeach
                 </tbody>
