@@ -298,7 +298,7 @@ class ShopeeApiService
                 ]
             );
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            Log::error('Shopee updateStock connection error', ['shop_id'=>$shopId,'item_id'=>$itemId,'err'=>$e->getMessage()]);
+            Log::error('Shopee updateStock connection error', ['shop_id' => $shopId, 'item_id' => $itemId, 'err' => $e->getMessage()]);
             throw new \RuntimeException('Connection to Shopee API failed: ' . $e->getMessage());
         }
 
