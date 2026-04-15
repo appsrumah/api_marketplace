@@ -158,6 +158,26 @@ class SyncShopeeInventoryJob implements ShouldQueue
                 ];
             }
 
+            // Dedupe stock_list by model_id to avoid Shopee "Repeat model_id" error
+            $deduped = [];
+            $duplicates = [];
+            foreach ($stockList as $entry) {
+                $mid = (string) ($entry['model_id'] ?? '0');
+                if (isset($deduped[$mid])) {
+                    $duplicates[] = $mid;
+                }
+                // overwrite if duplicate — last occurrence wins
+                $deduped[$mid] = $entry;
+            }
+            if (!empty($duplicates)) {
+                Log::warning('SyncShopeeInventoryJob: duplicate model_id detected, deduping', [
+                    'account_id' => $this->accountId,
+                    'item_id'    => $itemId,
+                    'duplicates' => array_values(array_unique($duplicates)),
+                ]);
+            }
+            $stockList = array_values($deduped);
+
             try {
                 $apiResult = $shopeeService->updateStock(
                     accessToken: $account->access_token,
@@ -214,7 +234,7 @@ class SyncShopeeInventoryJob implements ShouldQueue
                         'pos_stock'    => $pushedQty,
                         'pushed_stock' => 0,
                         'status'       => 'failed',
-                        'error_message'=> $e->getMessage(),
+                        'error_message' => $e->getMessage(),
                         'synced_at'    => now(),
                     ]);
                 }

@@ -42,8 +42,8 @@ class StockSyncLogController extends Controller
             $s = $request->search;
             $query->where(function ($q) use ($s) {
                 $q->where('seller_sku', 'like', "%{$s}%")
-                  ->orWhere('title', 'like', "%{$s}%")
-                  ->orWhere('product_id', 'like', "%{$s}%");
+                    ->orWhere('title', 'like', "%{$s}%")
+                    ->orWhere('product_id', 'like', "%{$s}%");
             });
         }
         if ($request->filled('date_from')) {
@@ -135,14 +135,14 @@ class StockSyncLogController extends Controller
                 'status'       => 'success',
                 'api_response' => $result,
                 'retry_count'  => $log->retry_count + 1,
-                'last_retry_at'=> now(),
+                'last_retry_at' => now(),
                 'synced_at'    => now(),
             ]);
 
             // Update log lama — tandai sudah di-retry
             $log->update([
                 'retry_count'  => $log->retry_count + 1,
-                'last_retry_at'=> now(),
+                'last_retry_at' => now(),
             ]);
 
             return response()->json([
@@ -174,7 +174,7 @@ class StockSyncLogController extends Controller
 
             $log->update([
                 'retry_count'  => $log->retry_count + 1,
-                'last_retry_at'=> now(),
+                'last_retry_at' => now(),
             ]);
 
             return response()->json([
@@ -271,13 +271,13 @@ class StockSyncLogController extends Controller
                     'status'       => 'success',
                     'api_response' => $result,
                     'retry_count'  => $log->retry_count + 1,
-                    'last_retry_at'=> now(),
+                    'last_retry_at' => now(),
                     'synced_at'    => now(),
                 ]);
 
                 $log->update([
                     'retry_count'  => $log->retry_count + 1,
-                    'last_retry_at'=> now(),
+                    'last_retry_at' => now(),
                 ]);
 
                 $success++;
@@ -306,7 +306,7 @@ class StockSyncLogController extends Controller
 
                 $log->update([
                     'retry_count'  => $log->retry_count + 1,
-                    'last_retry_at'=> now(),
+                    'last_retry_at' => now(),
                 ]);
             }
         }
