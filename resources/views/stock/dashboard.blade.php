@@ -154,62 +154,92 @@
             </div>
         </div>
         {{-- Per-akun progress rows --}}
-        <div x-show="liveStatus && liveStatus.accounts.length" class="divide-y divide-outline-variant/10">
-            <template x-for="acc in (liveStatus ? liveStatus.accounts : [])" :key="acc.account_id">
+        {{-- CATATAN: gunakan Array.isArray() agar aman ketika accounts undefined/null --}}
+        <div x-show="liveStatus && Array.isArray(liveStatus.accounts) && liveStatus.accounts.length > 0"
+             class="divide-y divide-outline-variant/10">
+            <template x-for="acc in (liveStatus && Array.isArray(liveStatus.accounts) ? liveStatus.accounts : [])"
+                      :key="(acc.platform || 'X') + '_' + acc.account_id">
                 <div class="flex items-center gap-4 px-5 py-3">
-                    <div class="primary-gradient flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm"
-                         x-text="acc.account_name.charAt(0).toUpperCase()"></div>
+                    {{-- Avatar huruf pertama — null-safe --}}
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm"
+                         :class="acc.platform === 'SHOPEE' ? 'bg-orange-500' : 'primary-gradient'"
+                         x-text="(acc.account_name || '?').charAt(0).toUpperCase()"></div>
+
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <p class="truncate text-sm font-semibold text-on-surface" x-text="acc.account_name"></p>
+                            <div class="flex min-w-0 items-center gap-1.5">
+                                <p class="truncate text-sm font-semibold text-on-surface" x-text="acc.account_name || '—'"></p>
+                                {{-- Platform badge --}}
+                                <span class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold"
+                                      :class="acc.platform === 'SHOPEE' ? 'bg-orange-500/20 text-orange-700' : 'bg-primary/10 text-primary'"
+                                      x-text="acc.platform || 'TIKTOK'"></span>
+                            </div>
+                            {{-- Status badge --}}
                             <span class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
                                   :class="{
-                                      'bg-primary/10 text-primary': acc.progress && acc.progress.status === 'running',
-                                      'bg-secondary-container text-on-secondary-container': acc.progress && acc.progress.status === 'completed',
-                                      'bg-error-container text-on-error-container': acc.progress && acc.progress.status === 'failed',
-                                      'bg-tertiary-fixed text-on-tertiary-fixed-variant': acc.progress && acc.progress.status === 'starting',
-                                      'bg-surface-container text-on-surface-variant': !acc.progress || acc.progress.status === 'skipped',
+                                      'bg-primary/10 text-primary':                              acc.progress && acc.progress.status === 'running',
+                                      'bg-secondary-container text-on-secondary-container':      acc.progress && acc.progress.status === 'completed',
+                                      'bg-error-container text-on-error-container':              acc.progress && acc.progress.status === 'failed',
+                                      'bg-tertiary-fixed text-on-tertiary-fixed-variant':        acc.progress && acc.progress.status === 'starting',
+                                      'bg-surface-container text-on-surface-variant':            !acc.progress || acc.progress.status === 'skipped' || acc.progress.status === 'idle',
                                   }"
-                                  x-text="acc.progress ? ({'running':'▶ Sedang jalan','starting':'⏳ Memulai...','completed':'✅ Selesai','failed':'❌ Gagal','skipped':'⚠ Outlet kosong'}[acc.progress.status] || acc.progress.status) : 'Idle'">
+                                  x-text="acc.progress
+                                      ? ({'running':'▶ Sedang jalan','starting':'⏳ Memulai...','completed':'✅ Selesai','failed':'❌ Gagal','skipped':'⚠ Outlet kosong'}[acc.progress.status] ?? acc.progress.status)
+                                      : 'Idle'">
                             </span>
                         </div>
-                        {{-- Progress bar --}}
+
+                        {{-- Progress bar (running / starting) --}}
                         <template x-if="acc.progress && (acc.progress.status === 'running' || acc.progress.status === 'starting')">
                             <div class="mt-1.5">
                                 <div class="flex items-center justify-between text-[10px] text-on-surface-variant">
-                                    <span x-text="acc.progress.current + ' / ' + acc.progress.total + ' SKU'"></span>
-                                    <span x-text="acc.progress.total > 0 ? Math.round(acc.progress.current / acc.progress.total * 100) + '%' : '0%'"></span>
+                                    <span x-text="(acc.progress.current ?? 0) + ' / ' + (acc.progress.total ?? 0) + ' SKU'"></span>
+                                    <span class="font-bold text-primary"
+                                          x-text="(acc.progress.total ?? 0) > 0 ? Math.round((acc.progress.current ?? 0) / acc.progress.total * 100) + '%' : '0%'"></span>
                                 </div>
-                                <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-container">
+                                <div class="mt-1 h-2 w-full overflow-hidden rounded-full bg-surface-container">
                                     <div class="h-full rounded-full bg-primary transition-all duration-500"
-                                         :style="'width:' + (acc.progress.total > 0 ? Math.round(acc.progress.current / acc.progress.total * 100) : 0) + '%'"></div>
+                                         :style="'width:' + ((acc.progress.total ?? 0) > 0 ? Math.round((acc.progress.current ?? 0) / acc.progress.total * 100) : 0) + '%'"></div>
                                 </div>
                                 <p class="mt-0.5 text-[10px] text-on-surface-variant/70"
-                                   x-text="'✓ ' + acc.progress.success + ' berhasil · ✗ ' + acc.progress.failed + ' gagal'"></p>
+                                   x-text="'✓ ' + (acc.progress.success ?? 0) + ' berhasil · ✗ ' + (acc.progress.failed ?? 0) + ' gagal'"></p>
                             </div>
                         </template>
+
                         {{-- Selesai --}}
                         <p x-show="acc.progress && acc.progress.status === 'completed'"
                            class="mt-0.5 text-[10px] text-on-surface-variant"
-                           x-text="acc.progress ? '✓ ' + acc.progress.success + ' berhasil · ✗ ' + acc.progress.failed + ' gagal dari ' + acc.progress.total + ' SKU · selesai ' + new Date(acc.progress.finished_at).toLocaleTimeString('id-ID') : ''"></p>
+                           x-text="acc.progress
+                               ? '✓ ' + (acc.progress.success ?? 0) + ' berhasil · ✗ ' + (acc.progress.failed ?? 0) + ' gagal dari ' + (acc.progress.total ?? 0) + ' SKU · selesai ' + (acc.progress.finished_at ? new Date(acc.progress.finished_at).toLocaleTimeString('id-ID') : '')
+                               : ''"></p>
+
                         {{-- Error --}}
                         <p x-show="acc.progress && acc.progress.status === 'failed'"
-                           class="mt-0.5 truncate text-[10px] text-error" x-text="acc.progress ? acc.progress.error : ''"></p>
-                        {{-- Idle --}}
+                           class="mt-0.5 truncate text-[10px] text-error"
+                           x-text="acc.progress ? (acc.progress.error || 'Job gagal') : ''"></p>
+
+                        {{-- Idle / no progress --}}
                         <p x-show="!acc.progress || !['running','starting','completed','failed'].includes(acc.progress ? acc.progress.status : '')"
                            class="mt-0.5 text-[10px] text-on-surface-variant/60"
                            x-text="acc.last_update_human ? 'Terakhir sync: ' + acc.last_update_human : 'Belum pernah sync'"></p>
                     </div>
+
                     {{-- Tombol Sync 1 akun --}}
                     <button @click="doSyncAccount(acc.account_id, acc.account_name)"
                             :disabled="loading || (acc.progress && acc.progress.status === 'running')"
                             class="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface transition hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-50">
                         <span class="material-symbols-outlined text-[14px]"
-                              :class="loadingAction === 'sync-account-' + acc.account_id || (acc.progress && acc.progress.status === 'running') ? 'animate-spin' : ''">sync</span>
+                              :class="(loadingAction === 'sync-account-' + acc.account_id) || (acc.progress && acc.progress.status === 'running') ? 'animate-spin' : ''">sync</span>
                         <span x-text="acc.progress && acc.progress.status === 'running' ? 'Jalan...' : 'Sync'"></span>
                     </button>
                 </div>
             </template>
+        </div>
+
+        {{-- Empty state: liveStatus ada tapi accounts kosong (semua filtered out) --}}
+        <div x-show="liveStatus && Array.isArray(liveStatus.accounts) && liveStatus.accounts.length === 0"
+             class="px-5 py-4 text-center text-sm text-on-surface-variant/60">
+            Tidak ada akun aktif yang terdaftar.
         </div>
         {{-- Error panel — muncul jika ada failed jobs --}}
         <div x-show="liveStatus && liveStatus.queue.failed > 0 && liveStatus.recent_errors && liveStatus.recent_errors.length"

@@ -689,8 +689,18 @@ class StockController extends Controller
      * ================================================================ */
     public function syncProgress(): JsonResponse
     {
-        $tiktokAccounts = AccountShopTiktok::forUser()->get();
-        $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')->get();
+        try {
+            $tiktokAccounts = AccountShopTiktok::forUser()->get();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('syncProgress: gagal query TikTok accounts', ['error' => $e->getMessage()]);
+            $tiktokAccounts = collect();
+        }
+        try {
+            $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')->get();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('syncProgress: gagal query Shopee accounts', ['error' => $e->getMessage()]);
+            $shopeeAccounts = collect();
+        }
 
         $now = now();
 
@@ -744,32 +754,51 @@ class StockController extends Controller
         }
 
         // ── Account progress (TikTok + Shopee) ──────────────────────
-        $accountProgress = collect();
+        // Seluruh blok ini dibungkus try-catch agar exceptions (DB down, cache error,
+        // kolom belum ada, dsb.) TIDAK menyebabkan respons 500 yang menghilangkan
+        // key `accounts` dari JSON — yang menyebabkan liveStatus.accounts.length throw.
+        $accountProgress = [];
 
-        foreach ($tiktokAccounts as $account) {
-            $progress = Cache::get("stock_sync_progress_{$account->id}");
-            $accountProgress->push([
-                'account_id'        => $account->id,
-                'account_name'      => $account->seller_name,
-                'platform'          => 'TIKTOK',
-                'id_outlet'         => $account->id_outlet,
-                'last_update_stock' => $account->last_update_stock?->toIso8601String(),
-                'last_update_human' => $account->last_update_stock?->diffForHumans(),
-                'progress'          => $progress,
-            ]);
+        try {
+            foreach ($tiktokAccounts as $account) {
+                try {
+                    $progress = Cache::get("stock_sync_progress_{$account->id}");
+                } catch (\Throwable $cacheErr) {
+                    $progress = null;
+                }
+                $accountProgress[] = [
+                    'account_id'        => $account->id,
+                    'account_name'      => $account->seller_name ?? '(tanpa nama)',
+                    'platform'          => 'TIKTOK',
+                    'id_outlet'         => $account->id_outlet,
+                    'last_update_stock' => $account->last_update_stock?->toIso8601String(),
+                    'last_update_human' => $account->last_update_stock?->diffForHumans(),
+                    'progress'          => $progress,
+                ];
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('syncProgress: TikTok account loop error', ['error' => $e->getMessage()]);
         }
 
-        foreach ($shopeeAccounts as $account) {
-            $progress = Cache::get("shopee_stock_sync_progress_{$account->id}");
-            $accountProgress->push([
-                'account_id'        => $account->id,
-                'account_name'      => $account->seller_name,
-                'platform'          => 'SHOPEE',
-                'id_outlet'         => $account->id_outlet,
-                'last_update_stock' => $account->last_update_stock?->toIso8601String(),
-                'last_update_human' => $account->last_update_stock?->diffForHumans(),
-                'progress'          => $progress,
-            ]);
+        try {
+            foreach ($shopeeAccounts as $account) {
+                try {
+                    $progress = Cache::get("shopee_stock_sync_progress_{$account->id}");
+                } catch (\Throwable $cacheErr) {
+                    $progress = null;
+                }
+                $accountProgress[] = [
+                    'account_id'        => $account->id,
+                    'account_name'      => $account->seller_name ?? '(tanpa nama)',
+                    'platform'          => 'SHOPEE',
+                    'id_outlet'         => $account->id_outlet,
+                    'last_update_stock' => $account->last_update_stock?->toIso8601String(),
+                    'last_update_human' => $account->last_update_stock?->diffForHumans(),
+                    'progress'          => $progress,
+                ];
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('syncProgress: Shopee account loop error', ['error' => $e->getMessage()]);
         }
 
         return response()->json([
@@ -782,7 +811,7 @@ class StockController extends Controller
                 'total'     => $available + $delayed + $reserved,
             ],
             'recent_errors' => $recentErrors,
-            'accounts'      => $accountProgress,
+            'accounts'      => array_values($accountProgress), // selalu array, bukan object
             'checked_at'    => $now->toIso8601String(),
         ]);
     }

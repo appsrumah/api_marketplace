@@ -192,26 +192,33 @@ class SyncShopeeInventoryJob implements ShouldQueue
                     $pushedQty = $stockMap[$product->seller_sku] ?? 0;
                     $oldQty    = (int) $product->quantity;
 
-                    ProdukSaya::where('account_id', $this->accountId)
-                        ->where('product_id', $itemId)
-                        ->where('sku_id', $product->sku_id)
-                        ->update(['quantity' => max(0, $pushedQty)]);
+                    try {
+                        ProdukSaya::where('account_id', $this->accountId)
+                            ->where('product_id', $itemId)
+                            ->where('sku_id', $product->sku_id)
+                            ->update(['quantity' => max(0, $pushedQty)]);
 
-                    StockSyncLog::create([
-                        'account_id'   => $this->accountId,
-                        'platform'     => 'SHOPEE',
-                        'account_name' => $account->seller_name,
-                        'product_id'   => $product->product_id,
-                        'sku_id'       => $product->sku_id,
-                        'seller_sku'   => $product->seller_sku,
-                        'title'        => $product->title,
-                        'old_quantity' => $oldQty,
-                        'pos_stock'    => $pushedQty,
-                        'pushed_stock' => $pushedQty,
-                        'status'       => 'success',
-                        'api_response' => $apiResult,
-                        'synced_at'    => now(),
-                    ]);
+                        StockSyncLog::create([
+                            'account_id'   => $this->accountId,
+                            'platform'     => 'SHOPEE',
+                            'account_name' => $account->seller_name,
+                            'product_id'   => $product->product_id,
+                            'sku_id'       => $product->sku_id,
+                            'seller_sku'   => $product->seller_sku,
+                            'title'        => $product->title,
+                            'old_quantity' => $oldQty,
+                            'pos_stock'    => $pushedQty,
+                            'pushed_stock' => $pushedQty,
+                            'status'       => 'success',
+                            'api_response' => $apiResult,
+                            'synced_at'    => now(),
+                        ]);
+                    } catch (\Throwable $logErr) {
+                        Log::warning('SyncShopeeInventoryJob: gagal tulis log/update quantity', [
+                            'seller_sku' => $product->seller_sku,
+                            'error'      => $logErr->getMessage(),
+                        ]);
+                    }
                 }
             } catch (\Throwable $e) {
                 $failed += count($variants);
@@ -222,21 +229,28 @@ class SyncShopeeInventoryJob implements ShouldQueue
                 // ✅ Log gagal ke stock_sync_logs per varian
                 foreach ($variants as $product) {
                     $pushedQty = $stockMap[$product->seller_sku] ?? 0;
-                    StockSyncLog::create([
-                        'account_id'   => $this->accountId,
-                        'platform'     => 'SHOPEE',
-                        'account_name' => $account->seller_name,
-                        'product_id'   => $product->product_id,
-                        'sku_id'       => $product->sku_id,
-                        'seller_sku'   => $product->seller_sku,
-                        'title'        => $product->title,
-                        'old_quantity' => (int) $product->quantity,
-                        'pos_stock'    => $pushedQty,
-                        'pushed_stock' => 0,
-                        'status'       => 'failed',
-                        'error_message' => $e->getMessage(),
-                        'synced_at'    => now(),
-                    ]);
+                    try {
+                        StockSyncLog::create([
+                            'account_id'   => $this->accountId,
+                            'platform'     => 'SHOPEE',
+                            'account_name' => $account->seller_name,
+                            'product_id'   => $product->product_id,
+                            'sku_id'       => $product->sku_id,
+                            'seller_sku'   => $product->seller_sku,
+                            'title'        => $product->title,
+                            'old_quantity' => (int) $product->quantity,
+                            'pos_stock'    => $pushedQty,
+                            'pushed_stock' => 0,
+                            'status'       => 'failed',
+                            'error_message' => $e->getMessage(),
+                            'synced_at'    => now(),
+                        ]);
+                    } catch (\Throwable $logErr) {
+                        Log::warning('SyncShopeeInventoryJob: gagal tulis failure log', [
+                            'seller_sku' => $product->seller_sku,
+                            'error'      => $logErr->getMessage(),
+                        ]);
+                    }
                 }
 
                 if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'rate')) {

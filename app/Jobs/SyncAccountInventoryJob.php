@@ -152,25 +152,33 @@ class SyncAccountInventoryJob implements ShouldQueue
 
                 // ✅ Update quantity + log ke stock_sync_logs
                 $oldQty = (int) $product->quantity;
-                ProdukSaya::where('account_id', $this->accountId)
-                    ->where('product_id', $product->product_id)
-                    ->where('sku_id', $product->sku_id)
-                    ->update(['quantity' => max(0, $qty)]);
+                try {
+                    ProdukSaya::where('account_id', $this->accountId)
+                        ->where('product_id', $product->product_id)
+                        ->where('sku_id', $product->sku_id)
+                        ->update(['quantity' => max(0, $qty)]);
 
-                StockSyncLog::create([
-                    'account_id'   => $this->accountId,
-                    'platform'     => $product->platform ?? 'TIKTOK',
-                    'account_name' => $account->seller_name,
-                    'product_id'   => $product->product_id,
-                    'sku_id'       => $product->sku_id,
-                    'seller_sku'   => $product->seller_sku,
-                    'title'        => $product->title,
-                    'old_quantity' => $oldQty,
-                    'pos_stock'    => $qty,
-                    'pushed_stock' => $qty,
-                    'status'       => 'success',
-                    'synced_at'    => now(),
-                ]);
+                    StockSyncLog::create([
+                        'account_id'   => $this->accountId,
+                        'platform'     => $product->platform ?? 'TIKTOK',
+                        'account_name' => $account->seller_name,
+                        'product_id'   => $product->product_id,
+                        'sku_id'       => $product->sku_id,
+                        'seller_sku'   => $product->seller_sku,
+                        'title'        => $product->title,
+                        'old_quantity' => $oldQty,
+                        'pos_stock'    => $qty,
+                        'pushed_stock' => $qty,
+                        'status'       => 'success',
+                        'synced_at'    => now(),
+                    ]);
+                } catch (\Throwable $logErr) {
+                    // Jangan matikan job karena gagal tulis log (misal tabel belum ada)
+                    Log::warning('SyncAccountInventoryJob: gagal tulis log/update quantity', [
+                        'seller_sku' => $product->seller_sku,
+                        'error'      => $logErr->getMessage(),
+                    ]);
+                }
             } catch (\Throwable $e) {
                 $failed++;
                 Log::warning("SyncAccountInventoryJob: gagal push SKU [{$product->seller_sku}]", [
@@ -179,21 +187,28 @@ class SyncAccountInventoryJob implements ShouldQueue
                 ]);
 
                 // ✅ Log gagal ke stock_sync_logs
-                StockSyncLog::create([
-                    'account_id'    => $this->accountId,
-                    'platform'      => $product->platform ?? 'TIKTOK',
-                    'account_name'  => $account->seller_name,
-                    'product_id'    => $product->product_id,
-                    'sku_id'        => $product->sku_id,
-                    'seller_sku'    => $product->seller_sku,
-                    'title'         => $product->title,
-                    'old_quantity'  => (int) $product->quantity,
-                    'pos_stock'     => $qty,
-                    'pushed_stock'  => 0,
-                    'status'        => 'failed',
-                    'error_message' => $e->getMessage(),
-                    'synced_at'     => now(),
-                ]);
+                try {
+                    StockSyncLog::create([
+                        'account_id'    => $this->accountId,
+                        'platform'      => $product->platform ?? 'TIKTOK',
+                        'account_name'  => $account->seller_name,
+                        'product_id'    => $product->product_id,
+                        'sku_id'        => $product->sku_id,
+                        'seller_sku'    => $product->seller_sku,
+                        'title'         => $product->title,
+                        'old_quantity'  => (int) $product->quantity,
+                        'pos_stock'     => $qty,
+                        'pushed_stock'  => 0,
+                        'status'        => 'failed',
+                        'error_message' => $e->getMessage(),
+                        'synced_at'     => now(),
+                    ]);
+                } catch (\Throwable $logErr) {
+                    Log::warning('SyncAccountInventoryJob: gagal tulis failure log', [
+                        'seller_sku' => $product->seller_sku,
+                        'error'      => $logErr->getMessage(),
+                    ]);
+                }
 
                 // Jika rate limit (429) → tunggu 1 detik lalu lanjut
                 if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'rate')) {
