@@ -351,11 +351,11 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                 <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-error-container text-on-error-container">
                     <span class="material-symbols-outlined text-[16px]">error</span>
                 </div>
-                {{-- <div>
+                <div>
                     <p class="font-bold text-on-error-container">âŒ Error dari server</p>
                     <p class="mt-1 text-sm text-on-error-container/80" x-text="result.pesan"></p>
                     <p x-show="result.tip" class="mt-1 text-xs text-on-error-container/60" x-text="'ðŸ’¡ ' + result.tip"></p>
-                </div> --}}
+                </div>
             </div>
         </div>
     </div>

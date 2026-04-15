@@ -413,7 +413,7 @@ class TiktokApiService
                     Log::info('Retrying TikTok updateInventory with per-warehouse entries', [
                         'product_id'   => $productId,
                         'sku_id'       => $skuId,
-                        'warehouse_ids'=> $warehouseIds,
+                        'warehouse_ids' => $warehouseIds,
                         'quantity'     => $quantity,
                     ]);
 
