@@ -10,6 +10,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShopeeAuthController;
 use App\Http\Controllers\ShopeeOrderController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\StockSyncLogController;
 use App\Http\Controllers\TikTokWebhookController;
 use App\Http\Controllers\TiktokAuthController;
 use App\Http\Controllers\UnifiedOrderController;
@@ -156,6 +157,12 @@ Route::middleware(['auth', 'check.active'])->group(function () {
         Route::post('/run-queue-web', [StockController::class, 'runQueueWeb'])->name('run-queue-web');
         Route::get('/{account}/sync', [StockController::class, 'syncAccount'])->name('sync-account');
         Route::post('/{account}/set-outlet', [StockController::class, 'setOutlet'])->name('set-outlet');
+
+        // ── Log Sync Stok ────────────────────────────────────────────
+        Route::get('/logs',              [StockSyncLogController::class, 'index'])->name('sync-logs');
+        Route::post('/logs/{log}/push-one', [StockSyncLogController::class, 'pushOne'])->name('sync-log.push-one');
+        Route::post('/logs/push-bulk',   [StockSyncLogController::class, 'pushBulk'])->name('sync-log.push-bulk');
+        Route::post('/logs/clear-old',   [StockSyncLogController::class, 'clearOld'])->name('sync-log.clear-old');
 
         // ── Testing Only ─────────────────────────────────────────────
         Route::get('/test',                          [StockController::class, 'testStock'])->name('test');

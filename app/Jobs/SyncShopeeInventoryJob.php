@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\AccountShopShopee;
 use App\Models\ProdukSaya;
+use App\Models\StockSyncLog;
 use App\Services\PosStockService;
 use App\Services\ShopeeApiService;
 use Carbon\Carbon;
@@ -89,7 +90,7 @@ class SyncShopeeInventoryJob implements ShouldQueue
             ->where('product_status', 'ACTIVATE')
             ->whereNotNull('seller_sku')
             ->where('seller_sku', '!=', '')
-            ->select('product_id', 'sku_id', 'seller_sku')
+            ->select('product_id', 'sku_id', 'seller_sku', 'title', 'quantity')
             ->distinct()
             ->get();
 
@@ -158,18 +159,65 @@ class SyncShopeeInventoryJob implements ShouldQueue
             }
 
             try {
-                $shopeeService->updateStock(
+                $apiResult = $shopeeService->updateStock(
                     accessToken: $account->access_token,
                     shopId: $shopId,
                     itemId: (int) $itemId,
                     stockList: $stockList,
                 );
                 $success += count($variants);
+
+                // ✅ Update quantity + log ke stock_sync_logs
+                foreach ($variants as $product) {
+                    $pushedQty = $stockMap[$product->seller_sku] ?? 0;
+                    $oldQty    = (int) $product->quantity;
+
+                    ProdukSaya::where('account_id', $this->accountId)
+                        ->where('product_id', $itemId)
+                        ->where('sku_id', $product->sku_id)
+                        ->update(['quantity' => max(0, $pushedQty)]);
+
+                    StockSyncLog::create([
+                        'account_id'   => $this->accountId,
+                        'platform'     => 'SHOPEE',
+                        'account_name' => $account->seller_name,
+                        'product_id'   => $product->product_id,
+                        'sku_id'       => $product->sku_id,
+                        'seller_sku'   => $product->seller_sku,
+                        'title'        => $product->title,
+                        'old_quantity' => $oldQty,
+                        'pos_stock'    => $pushedQty,
+                        'pushed_stock' => $pushedQty,
+                        'status'       => 'success',
+                        'api_response' => $apiResult,
+                        'synced_at'    => now(),
+                    ]);
+                }
             } catch (\Throwable $e) {
                 $failed += count($variants);
                 Log::warning("SyncShopeeInventoryJob: gagal push item [{$itemId}]", [
                     'error' => $e->getMessage(),
                 ]);
+
+                // ✅ Log gagal ke stock_sync_logs per varian
+                foreach ($variants as $product) {
+                    $pushedQty = $stockMap[$product->seller_sku] ?? 0;
+                    StockSyncLog::create([
+                        'account_id'   => $this->accountId,
+                        'platform'     => 'SHOPEE',
+                        'account_name' => $account->seller_name,
+                        'product_id'   => $product->product_id,
+                        'sku_id'       => $product->sku_id,
+                        'seller_sku'   => $product->seller_sku,
+                        'title'        => $product->title,
+                        'old_quantity' => (int) $product->quantity,
+                        'pos_stock'    => $pushedQty,
+                        'pushed_stock' => 0,
+                        'status'       => 'failed',
+                        'error_message'=> $e->getMessage(),
+                        'synced_at'    => now(),
+                    ]);
+                }
 
                 if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'rate')) {
                     sleep(1);

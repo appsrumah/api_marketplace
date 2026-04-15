@@ -283,7 +283,7 @@ class ShopeeApiService
         $timestamp = time();
         $sign      = $this->buildShopSign($path, $timestamp, $accessToken, $shopId);
 
-        $response = Http::post(
+        $response = Http::timeout(30)->connectTimeout(15)->post(
             $this->apiBase . $path . '?' . http_build_query([
                 'partner_id'   => $this->partnerId,
                 'timestamp'    => $timestamp,
@@ -297,7 +297,22 @@ class ShopeeApiService
             ]
         );
 
-        return $response->json();
+        $data = $response->json() ?? [];
+
+        // ✅ Cek error dari Shopee API — tanpa ini, response error dianggap "success"
+        if (!empty($data['error']) && $data['error'] !== '') {
+            Log::warning('Shopee updateStock API error', [
+                'item_id'  => $itemId,
+                'shop_id'  => $shopId,
+                'error'    => $data['error'],
+                'message'  => $data['message'] ?? 'unknown',
+            ]);
+            throw new \RuntimeException(
+                'Shopee updateStock error [' . $data['error'] . ']: ' . ($data['message'] ?? 'unknown')
+            );
+        }
+
+        return $data;
     }
 
     /* ===================================================================

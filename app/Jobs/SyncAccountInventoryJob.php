@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\AccountShopTiktok;
 use App\Models\ProdukSaya;
+use App\Models\StockSyncLog;
 use App\Services\PosStockService;
 use App\Services\TiktokApiService;
 use Carbon\Carbon;
@@ -91,7 +92,7 @@ class SyncAccountInventoryJob implements ShouldQueue
             ->where('product_status', 'ACTIVATE')
             ->whereNotNull('seller_sku')
             ->where('seller_sku', '!=', '')
-            ->select('product_id', 'sku_id', 'seller_sku')
+            ->select('product_id', 'sku_id', 'seller_sku', 'title', 'quantity', 'platform')
             ->distinct()
             ->get();
 
@@ -148,11 +149,50 @@ class SyncAccountInventoryJob implements ShouldQueue
                     quantity: $qty,
                 );
                 $success++;
+
+                // ✅ Update quantity + log ke stock_sync_logs
+                $oldQty = (int) $product->quantity;
+                ProdukSaya::where('account_id', $this->accountId)
+                    ->where('product_id', $product->product_id)
+                    ->where('sku_id', $product->sku_id)
+                    ->update(['quantity' => max(0, $qty)]);
+
+                StockSyncLog::create([
+                    'account_id'   => $this->accountId,
+                    'platform'     => $product->platform ?? 'TIKTOK',
+                    'account_name' => $account->seller_name,
+                    'product_id'   => $product->product_id,
+                    'sku_id'       => $product->sku_id,
+                    'seller_sku'   => $product->seller_sku,
+                    'title'        => $product->title,
+                    'old_quantity' => $oldQty,
+                    'pos_stock'    => $qty,
+                    'pushed_stock' => $qty,
+                    'status'       => 'success',
+                    'synced_at'    => now(),
+                ]);
             } catch (\Throwable $e) {
                 $failed++;
                 Log::warning("SyncAccountInventoryJob: gagal push SKU [{$product->seller_sku}]", [
                     'sku_id' => $product->sku_id,
                     'error'  => $e->getMessage(),
+                ]);
+
+                // ✅ Log gagal ke stock_sync_logs
+                StockSyncLog::create([
+                    'account_id'    => $this->accountId,
+                    'platform'      => $product->platform ?? 'TIKTOK',
+                    'account_name'  => $account->seller_name,
+                    'product_id'    => $product->product_id,
+                    'sku_id'        => $product->sku_id,
+                    'seller_sku'    => $product->seller_sku,
+                    'title'         => $product->title,
+                    'old_quantity'  => (int) $product->quantity,
+                    'pos_stock'     => $qty,
+                    'pushed_stock'  => 0,
+                    'status'        => 'failed',
+                    'error_message' => $e->getMessage(),
+                    'synced_at'     => now(),
                 ]);
 
                 // Jika rate limit (429) → tunggu 1 detik lalu lanjut

@@ -36,6 +36,13 @@
                 <span class="material-symbols-outlined text-[18px]">refresh</span>
                 Refresh
             </a>
+
+            {{-- Log Sync --}}
+            <a href="{{ route('stock.sync-logs') }}"
+               class="inline-flex items-center gap-1.5 rounded-xl bg-surface-container px-4 py-2.5 text-sm font-semibold text-on-surface-variant transition hover:bg-surface-container-high">
+                <span class="material-symbols-outlined text-[18px]">history</span>
+                Log Sync
+            </a>
         </div>
     </div>
 
