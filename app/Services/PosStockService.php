@@ -8,50 +8,38 @@ use Illuminate\Support\Facades\Log;
 class PosStockService
 {
     /**
-     * Ambil stok realtime 1 SKU dari DB POS.
-     * Logika: total_po - total_so (sama persis dengan update_stok_shop.php Shopee)
+     * Ambil stok 1 SKU dari tabel product_stocks di DB POS.
+     * Query langsung ke kolom current_stock berdasarkan nomor_product + outlet_id.
      *
-     * @param  string  $sellerSku   = nomor_product di tabel product POS
-     * @param  int     $idOutlet    = id_outlet di tabel product POS
-     * @return int     stok (minimum 0)
+     * @param  string  $sellerSku   = nomor_product di tabel product_stocks
+     * @param  int     $idOutlet    = outlet_id di tabel product_stocks
+     * @return int     current_stock (minimum 0)
      */
     public function getStock(string $sellerSku, int $idOutlet): int
     {
         try {
             $row = DB::connection('pos')->selectOne(
-                "SELECT
-                    a.id,
-                    COALESCE(
-                        (SELECT SUM(c.qty) FROM po_detail c WHERE c.id_product = a.id),
-                        0
-                    ) AS total_po,
-                    COALESCE(
-                        (SELECT SUM(b.qty) FROM so_detail b WHERE b.id_product = a.id),
-                        0
-                    ) AS total_so
-                FROM product a
-                WHERE a.id_outlet = ?
-                  AND a.is_aktif  = '1'
-                  AND a.nomor_product = ?
+                "SELECT current_stock
+                FROM product_stocks
+                WHERE outlet_id     = ?
+                  AND nomor_product = ?
                 LIMIT 1",
                 [$idOutlet, trim($sellerSku)]
             );
 
             if (! $row) {
-                Log::warning('PosStockService: SKU tidak ditemukan di POS', [
+                Log::warning('PosStockService: SKU tidak ditemukan di product_stocks', [
                     'seller_sku' => $sellerSku,
-                    'id_outlet'  => $idOutlet,
+                    'outlet_id'  => $idOutlet,
                 ]);
                 return 0;
             }
 
-            $qty = (int) $row->total_po - (int) $row->total_so;
-
-            return max(0, $qty); // jika negatif → 0, sama seperti Shopee lama
+            return max(0, (int) $row->current_stock);
         } catch (\Throwable $e) {
             Log::error('PosStockService::getStock error', [
                 'seller_sku' => $sellerSku,
-                'id_outlet'  => $idOutlet,
+                'outlet_id'  => $idOutlet,
                 'error'      => $e->getMessage(),
             ]);
 
@@ -60,12 +48,12 @@ class PosStockService
     }
 
     /**
-     * Ambil stok untuk banyak SKU sekaligus (1 query ke DB POS).
+     * Ambil stok untuk banyak SKU sekaligus dari tabel product_stocks (1 query ke DB POS).
      * Lebih efisien dibanding loop getStock().
      *
-     * @param  string[]  $sellerSkus
-     * @param  int       $idOutlet
-     * @return array<string, int>   ['SKU001' => 15, 'SKU002' => 0, ...]
+     * @param  string[]  $sellerSkus  nomor_product di tabel product_stocks
+     * @param  int       $idOutlet    outlet_id di tabel product_stocks
+     * @return array<string, int>     ['SKU001' => 15, 'SKU002' => 0, ...]
      */
     public function getStockBulk(array $sellerSkus, int $idOutlet): array
     {
@@ -77,36 +65,25 @@ class PosStockService
             $placeholders = implode(',', array_fill(0, count($sellerSkus), '?'));
 
             $rows = DB::connection('pos')->select(
-                "SELECT
-                    a.nomor_product AS sku,
-                    COALESCE(
-                        (SELECT SUM(c.qty) FROM po_detail c WHERE c.id_product = a.id),
-                        0
-                    ) AS total_po,
-                    COALESCE(
-                        (SELECT SUM(b.qty) FROM so_detail b WHERE b.id_product = a.id),
-                        0
-                    ) AS total_so
-                FROM product a
-                WHERE a.id_outlet = ?
-                  AND a.is_aktif  = '1'
-                  AND a.nomor_product IN ({$placeholders})",
+                "SELECT nomor_product AS sku, current_stock
+                FROM product_stocks
+                WHERE outlet_id      = ?
+                  AND nomor_product IN ({$placeholders})",
                 array_merge([$idOutlet], array_map('trim', $sellerSkus))
             );
 
             $stockMap = [];
             foreach ($rows as $row) {
-                $qty = (int) $row->total_po - (int) $row->total_so;
-                $stockMap[$row->sku] = max(0, $qty);
+                $stockMap[$row->sku] = max(0, (int) $row->current_stock);
             }
 
             // SKU yang tidak ditemukan di POS → 0
             foreach ($sellerSkus as $sku) {
                 if (! isset($stockMap[trim($sku)])) {
                     $stockMap[trim($sku)] = 0;
-                    Log::warning('PosStockService: SKU tidak ditemukan di POS (bulk)', [
+                    Log::warning('PosStockService: SKU tidak ditemukan di product_stocks (bulk)', [
                         'seller_sku' => $sku,
-                        'id_outlet'  => $idOutlet,
+                        'outlet_id'  => $idOutlet,
                     ]);
                 }
             }
@@ -114,7 +91,7 @@ class PosStockService
             return $stockMap;
         } catch (\Throwable $e) {
             Log::error('PosStockService::getStockBulk error', [
-                'id_outlet' => $idOutlet,
+                'outlet_id' => $idOutlet,
                 'error'     => $e->getMessage(),
             ]);
 
