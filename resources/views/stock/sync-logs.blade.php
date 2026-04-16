@@ -41,6 +41,13 @@
                 <span class="material-symbols-outlined text-[18px]">refresh</span>
                 Refresh
             </a>
+            {{-- Delete All --}}
+            <button @click="doDeleteAll()"
+                    :disabled="loading"
+                    class="inline-flex items-center gap-2 rounded-xl bg-error px-4 py-2 text-sm font-semibold text-white transition hover:bg-error/80 disabled:opacity-50">
+                <span class="material-symbols-outlined text-[18px]">delete_forever</span>
+                Hapus Semua
+            </button>
         </div>
     </div>
 
@@ -205,13 +212,11 @@
                     <tr class="transition hover:bg-surface-container/30 {{ $log->status === 'failed' ? 'bg-error-container/5' : '' }}">
                         {{-- Checkbox --}}
                         <td class="px-3 py-2.5 text-center">
-                            @if($log->status === 'failed')
                             <input type="checkbox"
                                    value="{{ $log->id }}"
                                    @change="toggleSelect({{ $log->id }})"
                                    :checked="selectedIds.includes({{ $log->id }})"
                                    class="rounded">
-                            @endif
                         </td>
                         {{-- Waktu --}}
                         <td class="whitespace-nowrap px-3 py-2.5 text-xs text-on-surface-variant">
@@ -373,7 +378,7 @@ function syncLogApp() {
 
         toggleSelectAll(e) {
             if (e.target.checked) {
-                this.selectedIds = @json($logs->where('status', 'failed')->pluck('id')->values());
+                this.selectedIds = @json($logs->pluck('id')->values());
             } else {
                 this.selectedIds = [];
             }
@@ -458,6 +463,34 @@ function syncLogApp() {
                 this.result = await res.json();
                 if (this.result.status === 'success' || this.result.status === 'completed') {
                     this.selectedIds = [];
+                    setTimeout(() => location.reload(), 900);
+                }
+            } catch (e) {
+                this.result = { status: 'error', message: 'Network error: ' + e.message };
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async doDeleteAll() {
+            if (this.loading) return;
+            if (!confirm('Hapus SEMUA log? Tindakan ini tidak dapat dibatalkan.')) return;
+
+            this.loading = true;
+            this.loadingAction = 'delete-all';
+            this.result = null;
+
+            try {
+                const res = await fetch('/stock/logs/delete-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                    },
+                });
+                this.result = await res.json();
+                if (this.result.status === 'success') {
                     setTimeout(() => location.reload(), 900);
                 }
             } catch (e) {

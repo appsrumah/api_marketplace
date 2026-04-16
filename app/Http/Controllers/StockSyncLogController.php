@@ -11,15 +11,23 @@ use App\Services\ShopeeApiService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 
 class StockSyncLogController extends Controller
 {
-    public function __construct(
-        private PosStockService   $posStock,
-        private ShopeeApiService  $shopeeService,
-        private TiktokApiService  $tiktokService,
-    ) {}
+    private PosStockService $posStock;
+    private ShopeeApiService $shopeeService;
+    private TiktokApiService $tiktokService;
+
+    public function __construct(PosStockService $posStock, ShopeeApiService $shopeeService, TiktokApiService $tiktokService)
+    {
+        $this->posStock = $posStock;
+        $this->shopeeService = $shopeeService;
+        $this->tiktokService = $tiktokService;
+
+        $this->middleware('auth');
+    }
 
     /* ================================================================
      *  INDEX — Tampilkan log sync stok
@@ -457,6 +465,25 @@ class StockSyncLogController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to bulk delete stock sync logs: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'Gagal menghapus log secara massal'], 500);
+        }
+    }
+
+    /**
+     * Delete all logs (dangerous - protected by UI confirmation)
+     */
+    public function deleteAll(Request $request)
+    {
+        try {
+            $deleted = StockSyncLog::query()->delete();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Semua log dihapus ({$deleted} rows)",
+                'deleted' => $deleted,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to delete all stock sync logs: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Gagal menghapus semua log'], 500);
         }
     }
 }
