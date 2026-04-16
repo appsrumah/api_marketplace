@@ -162,6 +162,10 @@ Route::middleware(['auth', 'check.active'])->group(function () {
         Route::get('/logs',              [StockSyncLogController::class, 'index'])->name('sync-logs');
         Route::post('/logs/{log}/push-one', [StockSyncLogController::class, 'pushOne'])->name('sync-log.push-one');
         Route::post('/logs/push-bulk',   [StockSyncLogController::class, 'pushBulk'])->name('sync-log.push-bulk');
+
+        // Stock sync logs: delete endpoints (used by sync-logs view)
+        Route::post('/logs/{id}/delete', [\App\Http\Controllers\StockSyncLogController::class, 'deleteOne']);
+        Route::post('/logs/delete-bulk', [\App\Http\Controllers\StockSyncLogController::class, 'deleteBulk']);
         Route::post('/logs/clear-old',   [StockSyncLogController::class, 'clearOld'])->name('sync-log.clear-old');
 
         // ── Testing Only ─────────────────────────────────────────────

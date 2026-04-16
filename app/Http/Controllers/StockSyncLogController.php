@@ -11,6 +11,7 @@ use App\Services\ShopeeApiService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class StockSyncLogController extends Controller
 {
@@ -422,5 +423,40 @@ class StockSyncLogController extends Controller
             return AccountShopShopee::find($accountId);
         }
         return AccountShopTiktok::find($accountId);
+    }
+
+    public function deleteOne(Request $request, $id)
+    {
+        try {
+            $log = StockSyncLog::find($id);
+            if (! $log) {
+                return response()->json(['status' => 'error', 'message' => 'Log tidak ditemukan'], 404);
+            }
+
+            $log->delete();
+
+            return response()->json(['status' => 'success', 'message' => 'Log dihapus']);
+        } catch (\Exception $e) {
+            Log::error('Failed to delete stock sync log: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Gagal menghapus log'], 500);
+        }
+    }
+
+    public function deleteBulk(Request $request)
+    {
+        try {
+            $ids = $request->input('log_ids', []);
+
+            if (!is_array($ids) || count($ids) === 0) {
+                return response()->json(['status' => 'error', 'message' => 'Tidak ada log yang dipilih'], 400);
+            }
+
+            $deleted = StockSyncLog::whereIn('id', $ids)->delete();
+
+            return response()->json(['status' => 'success', 'message' => "Dihapus: {$deleted} log(s)", 'deleted' => $deleted]);
+        } catch (\Exception $e) {
+            Log::error('Failed to bulk delete stock sync logs: ' . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Gagal menghapus log secara massal'], 500);
+        }
     }
 }
