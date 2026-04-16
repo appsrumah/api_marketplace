@@ -166,6 +166,12 @@
             <span class="material-symbols-outlined text-[14px]">replay</span>
             Retry Terpilih
         </button>
+        <button @click="doDeleteSelected()"
+                :disabled="loading"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-error px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+            <span class="material-symbols-outlined text-[14px]">delete</span>
+            Hapus Terpilih
+        </button>
         <button @click="selectedIds = []"
                 class="text-xs font-medium text-primary/70 hover:text-primary">
             Batal
@@ -293,18 +299,29 @@
                         </td>
                         {{-- Aksi --}}
                         <td class="px-3 py-2.5 text-center">
-                            @if($log->status === 'failed')
-                                <button @click="doPushOne({{ $log->id }})"
+                            <div class="flex items-center justify-center gap-2">
+                                @if($log->status === 'failed')
+                                    <button @click="doPushOne({{ $log->id }})"
+                                            :disabled="loading && loadingId === {{ $log->id }}"
+                                            class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5 text-[11px] font-semibold text-primary transition hover:bg-primary/20 disabled:opacity-50"
+                                            title="Retry push stok untuk produk ini">
+                                        <span class="material-symbols-outlined text-[14px]"
+                                              x-text="loading && loadingId === {{ $log->id }} ? 'hourglass_top' : 'replay'"></span>
+                                        <span x-text="loading && loadingId === {{ $log->id }} ? '...' : 'Retry'"></span>
+                                    </button>
+                                @else
+                                    <span class="text-[11px] text-on-surface-variant/30">—</span>
+                                @endif
+
+                                {{-- Delete single log --}}
+                                <button @click="doDeleteOne({{ $log->id }})"
                                         :disabled="loading && loadingId === {{ $log->id }}"
-                                        class="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5 text-[11px] font-semibold text-primary transition hover:bg-primary/20 disabled:opacity-50"
-                                        title="Retry push stok untuk produk ini">
+                                        class="inline-flex items-center gap-1 rounded-lg bg-error/10 px-2.5 py-1.5 text-[11px] font-semibold text-error transition hover:bg-error/20 disabled:opacity-50"
+                                        title="Hapus log ini">
                                     <span class="material-symbols-outlined text-[14px]"
-                                          x-text="loading && loadingId === {{ $log->id }} ? 'hourglass_top' : 'replay'"></span>
-                                    <span x-text="loading && loadingId === {{ $log->id }} ? '...' : 'Retry'"></span>
+                                          x-text="loading && loadingId === {{ $log->id }} ? 'hourglass_top' : 'delete'"></span>
                                 </button>
-                            @else
-                                <span class="text-[11px] text-on-surface-variant/30">—</span>
-                            @endif
+                            </div>
                         </td>
                     </tr>
                     @empty
@@ -387,6 +404,66 @@ function syncLogApp() {
             } finally {
                 this.loading = false;
                 this.loadingId = null;
+            }
+        },
+
+        async doDeleteOne(logId) {
+            if (this.loading) return;
+            if (!confirm('Hapus log ini?')) return;
+
+            this.loading = true;
+            this.loadingId = logId;
+            this.loadingAction = 'delete-one';
+            this.result = null;
+
+            try {
+                const res = await fetch(`/stock/logs/${logId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                    },
+                });
+                this.result = await res.json();
+                if (this.result.status === 'success') {
+                    setTimeout(() => location.reload(), 800);
+                }
+            } catch (e) {
+                this.result = { status: 'error', message: 'Network error: ' + e.message };
+            } finally {
+                this.loading = false;
+                this.loadingId = null;
+            }
+        },
+
+        async doDeleteSelected() {
+            if (this.loading || this.selectedIds.length === 0) return;
+            if (!confirm(`Hapus ${this.selectedIds.length} item yang dipilih?`)) return;
+
+            this.loading = true;
+            this.loadingAction = 'delete-bulk';
+            this.result = null;
+
+            try {
+                const res = await fetch('/stock/logs/delete-bulk', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ log_ids: this.selectedIds }),
+                });
+                this.result = await res.json();
+                if (this.result.status === 'success' || this.result.status === 'completed') {
+                    this.selectedIds = [];
+                    setTimeout(() => location.reload(), 900);
+                }
+            } catch (e) {
+                this.result = { status: 'error', message: 'Network error: ' + e.message };
+            } finally {
+                this.loading = false;
             }
         },
 
