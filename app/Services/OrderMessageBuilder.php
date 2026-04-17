@@ -77,9 +77,20 @@ class OrderMessageBuilder
         $lines[] = "";
         $lines[] = "Total     : Rp " . number_format($subtotal, 0, ',', '.');
 
+        // Pengiriman: tipe/provider dan biaya
+        $shippingCarrier = $order->shipping_type ?? ($order->shipping_provider ?? '');
+        if (!empty($shippingCarrier)) {
+            $lines[] = "Pengiriman: {$shippingCarrier}";
+        }
+        if (!empty($order->shipping_fee) && $order->shipping_fee > 0) {
+            $lines[] = "Ongkir     : Rp " . number_format($order->shipping_fee, 0, ',', '.');
+        }
+
         if (!empty($order->tracking_number)) {
             $lines[] = "Resi      : {$order->tracking_number}";
         }
+
+        $lines[] = "Status    : {$order->order_status}";
 
         return implode("\n", $lines);
     }
