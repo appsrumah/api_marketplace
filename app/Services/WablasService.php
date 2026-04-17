@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Services\OrderMessageBuilder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -55,7 +56,8 @@ class WablasService
             return false;
         }
 
-        $message = $this->buildOrderMessage($order, $idSo, $subtotal);
+        $builder = new OrderMessageBuilder();
+        $message = $builder->buildTikTokMessage($order, $idSo, $subtotal);
 
         // Support multi nomor dipisah koma (mirip logika Shopee lama)
         $phones = array_filter(array_map('trim', explode(',', $phone)));
@@ -115,40 +117,7 @@ class WablasService
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    //  Build pesan notifikasi order baru
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private function buildOrderMessage(Order $order, int $idSo, float $subtotal): string
-    {
-        $shopName  = $order->account?->shop_name ?? 'TikTok Shop';
-        $buyerName = $order->buyer_name ?? '-';
-
-        $lines = [];
-        $lines[] = "==== ADA ORDER BARU TIKTOK ====";
-        $lines[] = "*{$shopName}*";
-        $lines[] = "Order ID  : {$order->order_id}";
-        $lines[] = "Pembeli   : {$buyerName}";
-        $lines[] = "SO ID POS : {$idSo}";
-        $lines[] = "";
-
-        foreach ($order->items as $item) {
-            $nama  = $item->product_name ?? $item->seller_sku ?? 'Produk';
-            $harga = number_format((float) ($item->original_price ?? 0), 0, ',', '.');
-            $qty   = (int) ($item->quantity ?? 1);
-            $lines[] = "• {$nama}";
-            $lines[] = "  Rp {$harga} × {$qty} pcs";
-        }
-
-        $lines[] = "";
-        $lines[] = "Total     : Rp " . number_format($subtotal, 0, ',', '.');
-
-        if ($order->tracking_number) {
-            $lines[] = "Resi      : {$order->tracking_number}";
-        }
-
-        return implode("\n", $lines);
-    }
+    // Message building moved to OrderMessageBuilder for consistency
 
     // ─────────────────────────────────────────────────────────────────────────
     //  Helper: normalisasi nomor HP ke format 62xxx

@@ -270,19 +270,9 @@ class ShopeePosOrderService
             return;
         }
 
-        $shopName   = $order->account?->seller_name ?? 'Shopee';
-        $buyerName  = $order->buyer_name ?? 'Pembeli';
-        $itemCount  = $order->items->count();
-        $rp         = number_format($subtotal, 0, ',', '.');
-
-        $message = "📦 *Order Baru Shopee*\n"
-            . "Toko: {$shopName}\n"
-            . "Order: {$order->order_sn}\n"
-            . "Pembeli: {$buyerName}\n"
-            . "Jumlah Item: {$itemCount}\n"
-            . "Total: Rp {$rp}\n"
-            . "SO POS ID: {$idSo}\n"
-            . "Status: {$order->order_status}";
+        // Gunakan builder bersama agar format pesan konsisten antar platform
+        $builder = new OrderMessageBuilder();
+        $message = $builder->buildShopeeMessage($order, $idSo, $subtotal);
 
         $phones = array_filter(array_map('trim', explode(',', $phone)));
         foreach ($phones as $p) {
