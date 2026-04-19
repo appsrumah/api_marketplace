@@ -45,7 +45,8 @@ class DashboardController extends Controller
 
         $stats = [
             'total_accounts'  => $accounts->count(),
-            'active_accounts' => $tiktokAccounts->where('status', 'active')->count() + $shopeeAccounts->count(),
+            // pastikan hanya menghitung akun dengan status 'active' dari gabungan akun
+            'active_accounts' => $accounts->where('status', 'active')->count(),
             'total_products'  => ProdukSaya::where(function ($q) use ($tiktokAccountIds, $shopeeAccountIds) {
                 $q->where(fn($s) => $s->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])->whereIn('account_id', $tiktokAccountIds))
                     ->orWhere(fn($s) => $s->where('platform', 'SHOPEE')->whereIn('account_id', $shopeeAccountIds));
