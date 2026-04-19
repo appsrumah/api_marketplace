@@ -238,6 +238,52 @@ try {
     exit(1);
 }
 
+// Jika dipanggil lewat web dengan action tertentu, jalankan hanya task itu.
+// Contoh: /public/migrate-v2.php?secret=...&action=add_last_pushed
+if (! $isCli && isset($_GET['action']) && $_GET['action'] === 'add_last_pushed') {
+    try {
+        out('Menjalankan action: add_last_pushed', 'info', $isCli);
+
+        if (!tableExists($pdo, 'produk_saya')) {
+            out('Tabel `produk_saya` tidak ditemukan. Batalkan.', 'error', $isCli);
+            if (!$isCli) echo '</div></body></html>';
+            exit(1);
+        }
+
+        if (!columnExists($pdo, 'produk_saya', 'last_pushed_stock')) {
+            $sql = "ALTER TABLE `produk_saya` ADD COLUMN `last_pushed_stock` INT NULL AFTER `quantity`";
+            runSql($pdo, $sql, 'Tambah kolom last_pushed_stock ke produk_saya', $isCli);
+        } else {
+            out('Kolom `last_pushed_stock` sudah ada — dilewati.', 'skip', $isCli);
+        }
+
+        if (!columnExists($pdo, 'produk_saya', 'last_pushed_at')) {
+            $sql = "ALTER TABLE `produk_saya` ADD COLUMN `last_pushed_at` TIMESTAMP NULL AFTER `last_pushed_stock`";
+            runSql($pdo, $sql, 'Tambah kolom last_pushed_at ke produk_saya', $isCli);
+        } else {
+            out('Kolom `last_pushed_at` sudah ada — dilewati.', 'skip', $isCli);
+        }
+
+        // Backfill last_pushed_stock jika kosong
+        $countStmt = $pdo->query("SELECT COUNT(*) as c FROM produk_saya WHERE last_pushed_stock IS NULL OR last_pushed_stock = ''");
+        $toFill = (int) ($countStmt->fetch()['c'] ?? 0);
+        if ($toFill > 0) {
+            $fillSql = "UPDATE produk_saya SET last_pushed_stock = COALESCE(quantity, 0) WHERE last_pushed_stock IS NULL OR last_pushed_stock = ''";
+            $pdo->exec($fillSql);
+            out("Backfill last_pushed_stock: diisi untuk {$toFill} baris.", 'ok', $isCli);
+        } else {
+            out('Backfill last_pushed_stock: tidak ada baris yang perlu diisi.', 'skip', $isCli);
+        }
+
+        out('Action add_last_pushed selesai.', 'ok', $isCli);
+    } catch (PDOException $e) {
+        out('GAGAL saat menjalankan action add_last_pushed: ' . $e->getMessage(), 'error', $isCli);
+    }
+
+    if (!$isCli) echo '</div></body></html>';
+    exit(0);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: cek kolom ada atau tidak
 // ─────────────────────────────────────────────────────────────────────────────
