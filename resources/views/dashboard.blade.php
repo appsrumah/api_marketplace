@@ -164,6 +164,16 @@
     <h2 class="font-headline text-lg font-bold text-on-surface">Akun Terhubung</h2>
     <p class="mt-1 text-sm text-on-surface-variant">Daftar akun Marketplace yang sudah ditautkan.</p>
 
+    @if(auth()->user()?->isSuperAdmin())
+        <div class="mt-2 text-sm">
+            @if(request()->query('all') == '1')
+                <a href="{{ route('dashboard') }}" class="text-xs font-medium text-primary">Tampilkan hanya akun saya</a>
+            @else
+                <a href="{{ route('dashboard', ['all' => 1]) }}" class="text-xs font-medium text-primary">Tampilkan semua akun (admin)</a>
+            @endif
+        </div>
+    @endif
+
     @if($accounts->isEmpty())
         <div class="mt-6 flex flex-col items-center rounded-2xl border-2 border-dashed border-outline-variant/50 bg-surface-container-lowest p-12 text-center">
             <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-fixed">

@@ -4,21 +4,35 @@ namespace App\Http\Controllers;
 
 use App\Models\AccountShopShopee;
 use App\Models\AccountShopTiktok;
+use Illuminate\Http\Request;
 use App\Models\ProdukSaya;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        // Jika Super Admin meminta semua akun (debug/inspection), berikan seluruh akun
+        $showAll = $request->query('all') == '1' && (\Illuminate\Support\Facades\Auth::user()?->is_super_admin ?? false);
+
         // ── TikTok accounts ───────────────────────────────────────────
-        $tiktokAccounts = AccountShopTiktok::forUser()->withCount('produk')->latest()->get()
-            ->each(fn($a) => $a->platform = 'TIKTOK');
+        if ($showAll) {
+            $tiktokAccounts = AccountShopTiktok::withCount('produk')->latest()->get()
+                ->each(fn($a) => $a->platform = 'TIKTOK');
+        } else {
+            $tiktokAccounts = AccountShopTiktok::forUser()->withCount('produk')->latest()->get()
+                ->each(fn($a) => $a->platform = 'TIKTOK');
+        }
 
         // ── Shopee accounts ───────────────────────────────────────────
-        $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')
-            ->withCount('produk')->latest()->get()
-            ->each(fn($a) => $a->platform = 'SHOPEE');
+        if ($showAll) {
+            $shopeeAccounts = AccountShopShopee::withCount('produk')->latest()->get()
+                ->each(fn($a) => $a->platform = 'SHOPEE');
+        } else {
+            $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')
+                ->withCount('produk')->latest()->get()
+                ->each(fn($a) => $a->platform = 'SHOPEE');
+        }
 
         // Gabungan untuk view
         $accounts = $tiktokAccounts->merge($shopeeAccounts);
