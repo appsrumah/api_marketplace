@@ -74,7 +74,9 @@
                     </div>
                     <div>
                         <p class="text-[11px]">Skipped</p>
-                        <p class="font-semibold text-sm text-on-surface">{{ $a->last_run_skipped !== null ? number_format($a->last_run_skipped) : '—' }}</p>
+                        <p class="font-semibold text-sm text-on-surface">
+                            {{ data_get($a, 'last_run_skipped') !== null ? number_format(data_get($a, 'last_run_skipped')) : '—' }}
+                        </p>
                     </div>
                 </div>
             </div>
