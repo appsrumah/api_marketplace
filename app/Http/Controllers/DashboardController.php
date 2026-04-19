@@ -7,6 +7,7 @@ use App\Models\AccountShopTiktok;
 use Illuminate\Http\Request;
 use App\Models\ProdukSaya;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
@@ -109,6 +110,18 @@ class DashboardController extends Controller
         } catch (\Throwable $e) { /* jobs table might not exist yet */
         }
 
-        return view('dashboard', compact('accounts', 'stats', 'syncStats'));
+        // Debug info to help track discrepancy between stats and list
+        $debug = [
+            'tiktok_active_db' => $tiktokActiveCount,
+            'shopee_active_db' => $shopeeActiveCount,
+            'active_accounts_db' => $activeAccountsFromDb,
+            'accounts_list_count' => $accounts->count(),
+            'tiktok_forlist_count' => isset($tiktokForList) ? $tiktokForList->count() : null,
+            'shopee_forlist_count' => isset($shopeeForList) ? $shopeeForList->count() : null,
+        ];
+
+        Log::info('dashboard debug counts', $debug);
+
+        return view('dashboard', compact('accounts', 'stats', 'syncStats', 'debug'));
     }
 }
