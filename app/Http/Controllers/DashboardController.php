@@ -12,11 +12,13 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        // Jika Super Admin meminta semua akun (debug/inspection), berikan seluruh akun
-        $showAll = $request->query('all') == '1' && (\Illuminate\Support\Facades\Auth::user()?->is_super_admin ?? false);
+        /** @var \App\Models\User $user */
+        $user       = \Illuminate\Support\Facades\Auth::user();
+        $isSuperAdmin = $user && $user->isSuperAdmin();
 
         // ── TikTok accounts ───────────────────────────────────────────
-        if ($showAll) {
+        // Super Admin melihat SEMUA akun tanpa filter kepemilikan/status
+        if ($isSuperAdmin) {
             $tiktokAccounts = AccountShopTiktok::withCount('produk')->latest()->get()
                 ->each(fn($a) => $a->platform = 'TIKTOK');
         } else {
@@ -25,7 +27,8 @@ class DashboardController extends Controller
         }
 
         // ── Shopee accounts ───────────────────────────────────────────
-        if ($showAll) {
+        // Super Admin: semua akun termasuk non-active; User biasa: hanya active + milik sendiri
+        if ($isSuperAdmin) {
             $shopeeAccounts = AccountShopShopee::withCount('produk')->latest()->get()
                 ->each(fn($a) => $a->platform = 'SHOPEE');
         } else {
@@ -53,8 +56,10 @@ class DashboardController extends Controller
         ];
 
         // ── Stock sync summary ────────────────────────────────────────
-        $lastSyncTiktok = AccountShopTiktok::forUser()->whereNotNull('last_update_stock')->max('last_update_stock');
-        $lastSyncShopee = AccountShopShopee::forUser()->whereNotNull('last_update_stock')->max('last_update_stock');
+        $lastSyncTiktok = ($isSuperAdmin ? AccountShopTiktok::query() : AccountShopTiktok::forUser())
+            ->whereNotNull('last_update_stock')->max('last_update_stock');
+        $lastSyncShopee = ($isSuperAdmin ? AccountShopShopee::query() : AccountShopShopee::forUser())
+            ->whereNotNull('last_update_stock')->max('last_update_stock');
         $lastSync       = collect([$lastSyncTiktok, $lastSyncShopee])->filter()->max();
 
         $syncStats = [

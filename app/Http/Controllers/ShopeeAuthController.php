@@ -209,9 +209,9 @@ class ShopeeAuthController extends Controller
      * =================================================================== */
     public function syncProducts(AccountShopShopee $account)
     {
-        $this->authorizeAccount($account);
-
         try {
+            $this->authorizeAccount($account);
+
             $result = $this->productSync->syncForAccount($account);
 
             if ($result['error']) {
@@ -219,12 +219,15 @@ class ShopeeAuthController extends Controller
             }
 
             return back()->with('success', "✅ Berhasil sync {$result['saved']} produk dari Shopee \"{$account->seller_name}\".");
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return redirect()->route('dashboard')->with('error', 'Akses ditolak: ' . $e->getMessage());
         } catch (\Throwable $e) {
             Log::error("Shopee sync products error", [
                 'account_id' => $account->id,
                 'error'      => $e->getMessage(),
+                'trace'      => $e->getTraceAsString(),
             ]);
-            return back()->with('error', 'Gagal sync produk Shopee: ' . $e->getMessage());
+            return redirect()->route('dashboard')->with('error', 'Gagal sync produk Shopee: ' . $e->getMessage());
         }
     }
 
@@ -233,8 +236,11 @@ class ShopeeAuthController extends Controller
      * =================================================================== */
     private function authorizeAccount(AccountShopShopee $account): void
     {
-        /** @var \App\Models\User $user */
+        /** @var \App\Models\User|null $user */
         $user = Auth::user();
+        if (!$user) {
+            abort(401, 'Sesi login tidak valid.');
+        }
         if (!$user->isSuperAdmin() && $account->user_id !== $user->id) {
             abort(403, 'Anda tidak memiliki akses ke akun ini.');
         }

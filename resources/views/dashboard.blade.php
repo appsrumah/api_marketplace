@@ -166,11 +166,7 @@
 
     @if(auth()->user()?->isSuperAdmin())
         <div class="mt-2 text-sm">
-            @if(request()->query('all') == '1')
-                <a href="{{ route('dashboard') }}" class="text-xs font-medium text-primary">Tampilkan hanya akun saya</a>
-            @else
-                <a href="{{ route('dashboard', ['all' => 1]) }}" class="text-xs font-medium text-primary">Tampilkan semua akun (admin)</a>
-            @endif
+            <span class="text-xs font-medium text-tertiary">👑 Mode Super Admin — menampilkan semua akun</span>
         </div>
     @endif
 
