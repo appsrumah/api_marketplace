@@ -295,6 +295,10 @@ class StockController extends Controller
                 'last_update_stock' => $account->last_update_stock,
                 'siap_sync'         => $siapSync,
                 'tanpa_sku'         => $tanpaSku,
+                // summary of last pushed activity
+                'last_pushed_at'    => ProdukSaya::where('account_id', $account->id)->max('last_pushed_at'),
+                'last_pushed_count' => ProdukSaya::where('account_id', $account->id)->whereNotNull('last_pushed_at')->count(),
+                'products_total'    => ProdukSaya::where('account_id', $account->id)->count(),
             ];
         });
 
@@ -325,6 +329,10 @@ class StockController extends Controller
                 'last_update_stock' => $account->last_update_stock,
                 'siap_sync'         => $siapSync,
                 'tanpa_sku'         => $tanpaSku,
+                // summary of last pushed activity
+                'last_pushed_at'    => ProdukSaya::where('account_id', $account->id)->max('last_pushed_at'),
+                'last_pushed_count' => ProdukSaya::where('account_id', $account->id)->whereNotNull('last_pushed_at')->count(),
+                'products_total'    => ProdukSaya::where('account_id', $account->id)->count(),
             ];
         });
 
@@ -774,6 +782,11 @@ class StockController extends Controller
                     'last_update_stock' => $account->last_update_stock?->toIso8601String(),
                     'last_update_human' => $account->last_update_stock?->diffForHumans(),
                     'progress'          => $progress,
+                    'last_pushed_at'    => ProdukSaya::where('account_id', $account->id)->max('last_pushed_at'),
+                    'last_pushed_count' => ProdukSaya::where('account_id', $account->id)->whereNotNull('last_pushed_at')->count(),
+                    'products_total'    => ProdukSaya::where('account_id', $account->id)->count(),
+                    // expose last run skipped if cache has it
+                    'last_run_skipped'  => is_array($progress) && isset($progress['skipped']) ? $progress['skipped'] : null,
                 ];
             }
         } catch (\Throwable $e) {
@@ -795,6 +808,10 @@ class StockController extends Controller
                     'last_update_stock' => $account->last_update_stock?->toIso8601String(),
                     'last_update_human' => $account->last_update_stock?->diffForHumans(),
                     'progress'          => $progress,
+                    'last_pushed_at'    => ProdukSaya::where('account_id', $account->id)->max('last_pushed_at'),
+                    'last_pushed_count' => ProdukSaya::where('account_id', $account->id)->whereNotNull('last_pushed_at')->count(),
+                    'products_total'    => ProdukSaya::where('account_id', $account->id)->count(),
+                    'last_run_skipped'  => is_array($progress) && isset($progress['skipped']) ? $progress['skipped'] : null,
                 ];
             }
         } catch (\Throwable $e) {

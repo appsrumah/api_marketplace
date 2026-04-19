@@ -67,6 +67,28 @@ class SyncAccountInventoryJob implements ShouldQueue
             return;
         }
 
+        // ── 1b. Acquire lock per account+outlet (prevent concurrent syncs)
+        // Using MySQL GET_LOCK so Redis is not required.
+        $lockName = "stock_sync_{$this->accountId}_{$account->id_outlet}";
+        $gotLock = false;
+        try {
+            $res = \Illuminate\Support\Facades\DB::select('SELECT GET_LOCK(?, 0) as got', [$lockName]);
+            $gotLock = isset($res[0]) && ((int) ($res[0]->got ?? 0) === 1);
+            if (! $gotLock) {
+                Log::info("SyncAccountInventoryJob: lock busy, skip run [{$account->seller_name}]");
+                Cache::put($cacheKey, array_merge(Cache::get($cacheKey, []), [
+                    'status' => 'skipped',
+                    'reason' => 'another sync running',
+                    'updated_at' => now()->toIso8601String(),
+                ]), 600);
+                return;
+            }
+        } catch (\Throwable $e) {
+            // If DB locking fails, log and continue without lock
+            Log::warning('SyncAccountInventoryJob: GET_LOCK failed, continuing without lock', ['error' => $e->getMessage()]);
+            $gotLock = false;
+        }
+
         // ── 2. Catat status "mulai" ke Cache ─────────────────────────────
         Cache::put($cacheKey, [
             'status'       => 'starting',
@@ -117,120 +139,173 @@ class SyncAccountInventoryJob implements ShouldQueue
         $skus     = $products->pluck('seller_sku')->unique()->values()->all();
         $stockMap = $posStock->getStockBulk($skus, $account->id_outlet);
 
-        $total = $products->count();
         Log::info("SyncAccountInventoryJob: stok diambil bulk dari POS", [
             'akun'      => $account->seller_name,
             'sku_count' => count($skus),
         ]);
 
-        // Update Cache: total produk diketahui
+        // ── 5b. Filter hanya SKU yang stoknya BERUBAH (diff check)
+        // Bandingkan pos_stock vs last_pushed_stock (fallback ke quantity bila null).
+        $totalFetched = $products->count();
+        $products = $products->filter(function ($product) use ($stockMap) {
+            $posQty = $stockMap[$product->seller_sku] ?? 0;
+            $lastPushed = isset($product->last_pushed_stock) ? (int) $product->last_pushed_stock : (int) $product->quantity;
+            return $posQty !== $lastPushed;
+        });
+
+        $skipped = $totalFetched - $products->count();
+        $total   = $products->count();
+
+        Log::info("SyncAccountInventoryJob: diff check selesai", [
+            'akun'     => $account->seller_name,
+            'fetched'  => $totalFetched,
+            'changed'  => $total,
+            'skipped'  => $skipped,
+        ]);
+
+        if ($total === 0) {
+            Log::info("SyncAccountInventoryJob: semua stok sama, tidak ada yang perlu di-push [{$account->seller_name}]");
+            $account->update(['last_update_stock' => now()]);
+            Cache::put($cacheKey, [
+                'status'       => 'completed',
+                'account_name' => $account->seller_name,
+                'total'        => 0,
+                'skipped'      => $skipped,
+                'current'      => 0,
+                'success'      => 0,
+                'failed'       => 0,
+                'reason'       => 'Semua stok tidak berubah',
+                'started_at'   => Cache::get($cacheKey)['started_at'] ?? now()->toIso8601String(),
+                'finished_at'  => now()->toIso8601String(),
+                'updated_at'   => now()->toIso8601String(),
+            ], 86400);
+            return;
+        }
+
+        // Update Cache: jumlah produk yang akan di-push (hanya yang berubah)
         Cache::put($cacheKey, array_merge(Cache::get($cacheKey, []), [
             'status'     => 'running',
             'total'      => $total,
+            'skipped'    => $skipped,
             'updated_at' => now()->toIso8601String(),
         ]), 3600);
 
-        // ── 6. Push stok ke TikTok API satu per satu ─────────────────────
+        // ── 6. Push stok ke TikTok API in concurrent batches ─────────────
         $success = 0;
         $failed  = 0;
         $i       = 0;
         $startedAt = Cache::get($cacheKey)['started_at'] ?? now()->toIso8601String();
 
+        // Build updates map keyed by unique key
+        $updates = [];
+        $productMap = [];
         foreach ($products as $product) {
-            $i++;
             $qty = $stockMap[$product->seller_sku] ?? 0;
+            $key = "{$product->product_id}|{$product->sku_id}|{$product->seller_sku}";
+            $updates[$key] = [
+                'accessToken' => $account->access_token,
+                'shopCipher'  => $account->shop_cipher,
+                'productId'   => $product->product_id,
+                'skuId'       => $product->sku_id,
+                'quantity'    => (int) $qty,
+            ];
+            $productMap[$key] = $product;
+        }
 
-            try {
-                $tiktokService->updateInventory(
-                    accessToken: $account->access_token,
-                    shopCipher: $account->shop_cipher,
-                    productId: $product->product_id,
-                    skuId: $product->sku_id,
-                    quantity: $qty,
-                );
-                $success++;
+        $chunkSize = 50; // concurrent requests per batch
+        $chunks = array_chunk($updates, $chunkSize, true);
 
-                // ✅ Update quantity + log ke stock_sync_logs
-                $oldQty = (int) $product->quantity;
-                try {
-                    ProdukSaya::where('account_id', $this->accountId)
-                        ->where('product_id', $product->product_id)
-                        ->where('sku_id', $product->sku_id)
-                        ->update(['quantity' => max(0, $qty)]);
+        foreach ($chunks as $chunk) {
+            $results = $tiktokService->batchUpdateInventory($chunk, $chunkSize);
 
-                    StockSyncLog::create([
-                        'account_id'   => $this->accountId,
-                        'platform'     => $product->platform ?? 'TIKTOK',
-                        'account_name' => $account->seller_name,
-                        'product_id'   => $product->product_id,
-                        'sku_id'       => $product->sku_id,
-                        'seller_sku'   => $product->seller_sku,
-                        'title'        => $product->title,
-                        'old_quantity' => $oldQty,
-                        'pos_stock'    => $qty,
-                        'pushed_stock' => $qty,
-                        'status'       => 'success',
-                        'synced_at'    => now(),
-                    ]);
-                } catch (\Throwable $logErr) {
-                    // Jangan matikan job karena gagal tulis log (misal tabel belum ada)
-                    Log::warning('SyncAccountInventoryJob: gagal tulis log/update quantity', [
-                        'seller_sku' => $product->seller_sku,
-                        'error'      => $logErr->getMessage(),
-                    ]);
+            foreach ($results as $key => $res) {
+                $product = $productMap[$key] ?? null;
+                if (! $product) {
+                    continue;
                 }
-            } catch (\Throwable $e) {
-                $failed++;
-                Log::warning("SyncAccountInventoryJob: gagal push SKU [{$product->seller_sku}]", [
-                    'sku_id' => $product->sku_id,
-                    'error'  => $e->getMessage(),
-                ]);
+                $i++;
+                $qty = $stockMap[$product->seller_sku] ?? 0;
 
-                // ✅ Log gagal ke stock_sync_logs
-                try {
-                    StockSyncLog::create([
-                        'account_id'    => $this->accountId,
-                        'platform'      => $product->platform ?? 'TIKTOK',
-                        'account_name'  => $account->seller_name,
-                        'product_id'    => $product->product_id,
-                        'sku_id'        => $product->sku_id,
-                        'seller_sku'    => $product->seller_sku,
-                        'title'         => $product->title,
-                        'old_quantity'  => (int) $product->quantity,
-                        'pos_stock'     => $qty,
-                        'pushed_stock'  => 0,
-                        'status'        => 'failed',
-                        'error_message' => $e->getMessage(),
-                        'synced_at'     => now(),
-                    ]);
-                } catch (\Throwable $logErr) {
-                    Log::warning('SyncAccountInventoryJob: gagal tulis failure log', [
-                        'seller_sku' => $product->seller_sku,
-                        'error'      => $logErr->getMessage(),
-                    ]);
-                }
+                if (!empty($res['success'])) {
+                    $success++;
+                    $oldQty = (int) $product->quantity;
+                    try {
+                        ProdukSaya::where('account_id', $this->accountId)
+                            ->where('product_id', $product->product_id)
+                            ->where('sku_id', $product->sku_id)
+                            ->update([
+                                'quantity' => max(0, $qty),
+                                'last_pushed_stock' => max(0, $qty),
+                                'last_pushed_at' => now(),
+                            ]);
 
-                // Jika rate limit (429) → tunggu 1 detik lalu lanjut
-                if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'rate')) {
-                    sleep(1);
+                        StockSyncLog::create([
+                            'account_id'   => $this->accountId,
+                            'platform'     => $product->platform ?? 'TIKTOK',
+                            'account_name' => $account->seller_name,
+                            'product_id'   => $product->product_id,
+                            'sku_id'       => $product->sku_id,
+                            'seller_sku'   => $product->seller_sku,
+                            'title'        => $product->title,
+                            'old_quantity' => $oldQty,
+                            'pos_stock'    => $qty,
+                            'pushed_stock' => $qty,
+                            'status'       => 'success',
+                            'api_response' => $res['data'] ?? null,
+                            'synced_at'    => now(),
+                        ]);
+                    } catch (\Throwable $logErr) {
+                        Log::warning('SyncAccountInventoryJob: gagal tulis log/update quantity', [
+                            'seller_sku' => $product->seller_sku,
+                            'error'      => $logErr->getMessage(),
+                        ]);
+                    }
+                } else {
+                    $failed++;
+                    $errMsg = $res['error'] ?? json_encode($res['data'] ?? []);
+                    Log::warning("SyncAccountInventoryJob: gagal push SKU [{$product->seller_sku}]", [
+                        'sku_id' => $product->sku_id,
+                        'error'  => $errMsg,
+                    ]);
+
+                    try {
+                        StockSyncLog::create([
+                            'account_id'    => $this->accountId,
+                            'platform'      => $product->platform ?? 'TIKTOK',
+                            'account_name'  => $account->seller_name,
+                            'product_id'    => $product->product_id,
+                            'sku_id'        => $product->sku_id,
+                            'seller_sku'    => $product->seller_sku,
+                            'title'         => $product->title,
+                            'old_quantity'  => (int) $product->quantity,
+                            'pos_stock'     => $qty,
+                            'pushed_stock'  => 0,
+                            'status'        => 'failed',
+                            'error_message' => $errMsg,
+                            'synced_at'     => now(),
+                        ]);
+                    } catch (\Throwable $logErr) {
+                        Log::warning('SyncAccountInventoryJob: gagal tulis failure log', [
+                            'seller_sku' => $product->seller_sku,
+                            'error'      => $logErr->getMessage(),
+                        ]);
+                    }
                 }
             }
 
-            // Update Cache setiap 20 SKU agar dashboard bisa menampilkan progress
-            if ($i % 20 === 0 || $i === $total) {
-                Cache::put($cacheKey, [
-                    'status'       => 'running',
-                    'account_name' => $account->seller_name,
-                    'total'        => $total,
-                    'current'      => $i,
-                    'success'      => $success,
-                    'failed'       => $failed,
-                    'started_at'   => $startedAt,
-                    'updated_at'   => now()->toIso8601String(),
-                ], 3600);
-            }
+            // Update Cache per chunk
+            Cache::put($cacheKey, [
+                'status'       => 'running',
+                'account_name' => $account->seller_name,
+                'total'        => $total,
+                'current'      => $i,
+                'success'      => $success,
+                'failed'       => $failed,
+                'started_at'   => $startedAt,
+                'updated_at'   => now()->toIso8601String(),
+            ], 3600);
 
-            usleep(100_000); // 100ms jeda antar SKU — hindari rate limit TikTok
+            usleep(100_000); // short pause between batches
         }
 
         $account->update(['last_update_stock' => now()]);
@@ -240,6 +315,7 @@ class SyncAccountInventoryJob implements ShouldQueue
             'status'       => 'completed',
             'account_name' => $account->seller_name,
             'total'        => $total,
+            'skipped'      => $skipped ?? 0,
             'current'      => $total,
             'success'      => $success,
             'failed'       => $failed,
@@ -250,9 +326,19 @@ class SyncAccountInventoryJob implements ShouldQueue
 
         Log::info("✅ SyncAccountInventoryJob selesai [{$account->seller_name}]", [
             'total'   => $total,
+            'skipped' => $skipped ?? 0,
             'success' => $success,
             'failed'  => $failed,
         ]);
+
+        // Release DB lock jika kita berhasil mendapatkannya
+        try {
+            if (isset($gotLock) && $gotLock) {
+                \Illuminate\Support\Facades\DB::select('SELECT RELEASE_LOCK(?)', [$lockName]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('SyncAccountInventoryJob: gagal release DB lock', ['error' => $e->getMessage()]);
+        }
     }
 
     /* ── Private helper: refresh token ───────────────────────────── */

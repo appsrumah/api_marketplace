@@ -466,6 +466,94 @@ class TiktokApiService
         return $data['data'] ?? [];
     }
 
+    /**
+     * Batch update inventories concurrently using HTTP pool.
+     *
+     * @param array<int,array{accessToken:string,shopCipher:string,productId:string,skuId:string,quantity:int}> $updates
+     * @param int $chunkSize
+     * @return array<string,array{success:bool,data:array|null,error?:string}>
+     */
+    public function batchUpdateInventory(array $updates, int $chunkSize = 50): array
+    {
+        $results = [];
+
+        $items = $updates;
+        $chunks = array_chunk($items, $chunkSize, true);
+
+        foreach ($chunks as $chunk) {
+            $requests = [];
+            $keys = [];
+
+            foreach ($chunk as $k => $u) {
+                $path = "/product/202309/products/{$u['productId']}/inventory/update";
+                $timestamp = time();
+
+                $queryParams = [
+                    'app_key'     => $this->appKey,
+                    'timestamp'   => $timestamp,
+                    'shop_cipher' => $u['shopCipher'],
+                ];
+
+                $body = [
+                    'skus' => [
+                        [
+                            'id'        => $u['skuId'],
+                            'inventory' => [['quantity' => $u['quantity']]],
+                        ],
+                    ],
+                ];
+                $bodyJson = json_encode($body);
+
+                $sign = $this->buildSign($path, $queryParams, $bodyJson);
+                $queryParams['sign'] = $sign;
+                $queryParams['access_token'] = $u['accessToken'];
+
+                $url = $this->apiBase . $path . '?' . http_build_query($queryParams);
+
+                $requests[] = ['url' => $url, 'body' => $bodyJson, 'access_token' => $u['accessToken']];
+                $keys[] = $k;
+            }
+
+            // Send concurrently
+            $responses = Http::pool(function ($pool) use ($requests) {
+                $promises = [];
+                foreach ($requests as $r) {
+                    $promises[] = $pool->withHeaders([
+                        'Content-Type' => 'application/json',
+                        'x-tts-access-token' => $r['access_token'],
+                    ])->withBody($r['body'], 'application/json')->post($r['url']);
+                }
+                return $promises;
+            });
+
+            // Map responses back to keys
+            foreach ($responses as $i => $resp) {
+                $key = $keys[$i] ?? $i;
+                try {
+                    $data = $resp->json() ?? [];
+                } catch (\Throwable $e) {
+                    $results[$key] = ['success' => false, 'data' => null, 'error' => $e->getMessage()];
+                    continue;
+                }
+
+                if (($data['code'] ?? -1) !== 0) {
+                    // For complex cases (e.g., multiple warehouses), fallback to single updateInventory
+                    try {
+                        $u = $chunk[$key];
+                        $retry = $this->updateInventory($u['accessToken'], $u['shopCipher'], $u['productId'], $u['skuId'], $u['quantity']);
+                        $results[$key] = ['success' => true, 'data' => $retry];
+                    } catch (\Throwable $e) {
+                        $results[$key] = ['success' => false, 'data' => $data, 'error' => ($data['message'] ?? $e->getMessage())];
+                    }
+                } else {
+                    $results[$key] = ['success' => true, 'data' => $data['data'] ?? []];
+                }
+            }
+        }
+
+        return $results;
+    }
+
     /* ===================================================================
      *  SEARCH ORDERS  — POST /order/202309/orders/search
      *

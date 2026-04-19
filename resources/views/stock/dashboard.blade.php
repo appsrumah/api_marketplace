@@ -46,6 +46,39 @@
         </div>
     </div>
 
+    {{-- LAST PUSH SUMMARY (per akun) --}}
+    <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        @foreach($accounts as $a)
+            <div class="rounded-2xl bg-surface-container p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-on-surface">{{ $a->seller_name }}</p>
+                        <p class="text-xs text-on-surface-variant">{{ $a->platform }} • Outlet: {{ $a->id_outlet ?? '—' }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-on-surface-variant">Terakhir Push</p>
+                        <p class="font-bold text-sm text-on-surface">{{ $a->last_pushed_at ? \\Carbon\\Carbon::parse($a->last_pushed_at)->format('d M Y H:i') : '—' }}</p>
+                    </div>
+                </div>
+
+                <div class="mt-3 flex items-center justify-between text-[13px] text-on-surface-variant">
+                    <div>
+                        <p class="text-[11px]">Produk total</p>
+                        <p class="font-semibold text-sm text-on-surface">{{ number_format($a->products_total ?? 0) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[11px]">Ter-push</p>
+                        <p class="font-semibold text-sm text-on-surface">{{ number_format($a->last_pushed_count ?? 0) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[11px]">Skipped</p>
+                        <p class="font-semibold text-sm text-on-surface">{{ $a->last_run_skipped !== null ? number_format($a->last_run_skipped) : '—' }}</p>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+    </div>
+
     {{-- STATS CARDS --}}
     <div class="mt-6 grid grid-cols-2 gap-5 lg:grid-cols-4">
 

@@ -67,6 +67,27 @@ class SyncShopeeInventoryJob implements ShouldQueue
             return;
         }
 
+        // ── 1b. Acquire lock per account+outlet (prevent concurrent syncs)
+        // Using MySQL GET_LOCK so Redis is not required.
+        $lockName = "shopee_stock_sync_{$this->accountId}_{$account->id_outlet}";
+        $gotLock = false;
+        try {
+            $res = \Illuminate\Support\Facades\DB::select('SELECT GET_LOCK(?, 0) as got', [$lockName]);
+            $gotLock = isset($res[0]) && ((int) ($res[0]->got ?? 0) === 1);
+            if (! $gotLock) {
+                Log::info("SyncShopeeInventoryJob: lock busy, skip run [{$account->seller_name}]");
+                Cache::put($cacheKey, array_merge(Cache::get($cacheKey, []), [
+                    'status' => 'skipped',
+                    'reason' => 'another sync running',
+                    'updated_at' => now()->toIso8601String(),
+                ]), 600);
+                return;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('SyncShopeeInventoryJob: GET_LOCK failed, continuing without lock', ['error' => $e->getMessage()]);
+            $gotLock = false;
+        }
+
         // ── 2. Catat status "mulai" ke Cache ─────────────────────────────
         Cache::put($cacheKey, [
             'status'       => 'starting',
@@ -115,15 +136,55 @@ class SyncShopeeInventoryJob implements ShouldQueue
         $skus     = $products->pluck('seller_sku')->unique()->values()->all();
         $stockMap = $posStock->getStockBulk($skus, $account->id_outlet);
 
-        $total = $products->count();
         Log::info("SyncShopeeInventoryJob: stok diambil bulk dari POS", [
             'akun'      => $account->seller_name,
             'sku_count' => count($skus),
         ]);
 
+        // ── 5b. Filter hanya varian yang stoknya BERUBAH (diff check) ──────
+        // Shopee push per item_id (group); kita tetap group dulu,
+        // tapi hanya sertakan varian yang pos_stock != quantity tersimpan.
+        // Jika 1 item semua variannya sama → skip seluruh API call item itu.
+        $totalFetched = $products->count();
+        $products = $products->filter(function ($product) use ($stockMap) {
+            $posQty = $stockMap[$product->seller_sku] ?? 0;
+            $lastPushed = isset($product->last_pushed_stock) ? (int) $product->last_pushed_stock : (int) $product->quantity;
+            return $posQty !== $lastPushed;
+        });
+
+        $skipped = $totalFetched - $products->count();
+        $total   = $products->count();
+
+        Log::info("SyncShopeeInventoryJob: diff check selesai", [
+            'akun'    => $account->seller_name,
+            'fetched' => $totalFetched,
+            'changed' => $total,
+            'skipped' => $skipped,
+        ]);
+
+        if ($total === 0) {
+            Log::info("SyncShopeeInventoryJob: semua stok sama, tidak ada yang perlu di-push [{$account->seller_name}]");
+            $account->update(['last_update_stock' => now()]);
+            Cache::put($cacheKey, [
+                'status'       => 'completed',
+                'account_name' => $account->seller_name,
+                'total'        => 0,
+                'skipped'      => $skipped,
+                'current'      => 0,
+                'success'      => 0,
+                'failed'       => 0,
+                'reason'       => 'Semua stok tidak berubah',
+                'started_at'   => Cache::get($cacheKey)['started_at'] ?? now()->toIso8601String(),
+                'finished_at'  => now()->toIso8601String(),
+                'updated_at'   => now()->toIso8601String(),
+            ], 86400);
+            return;
+        }
+
         Cache::put($cacheKey, array_merge(Cache::get($cacheKey, []), [
             'status'     => 'running',
             'total'      => $total,
+            'skipped'    => $skipped,
             'updated_at' => now()->toIso8601String(),
         ]), 3600);
 
@@ -196,7 +257,11 @@ class SyncShopeeInventoryJob implements ShouldQueue
                         ProdukSaya::where('account_id', $this->accountId)
                             ->where('product_id', $itemId)
                             ->where('sku_id', $product->sku_id)
-                            ->update(['quantity' => max(0, $pushedQty)]);
+                            ->update([
+                                'quantity' => max(0, $pushedQty),
+                                'last_pushed_stock' => max(0, $pushedQty),
+                                'last_pushed_at' => now(),
+                            ]);
 
                         StockSyncLog::create([
                             'account_id'   => $this->accountId,
@@ -281,6 +346,7 @@ class SyncShopeeInventoryJob implements ShouldQueue
             'status'       => 'completed',
             'account_name' => $account->seller_name,
             'total'        => $total,
+            'skipped'      => $skipped ?? 0,
             'current'      => $total,
             'success'      => $success,
             'failed'       => $failed,
@@ -291,9 +357,19 @@ class SyncShopeeInventoryJob implements ShouldQueue
 
         Log::info("✅ SyncShopeeInventoryJob selesai [{$account->seller_name}]", [
             'total'   => $total,
+            'skipped' => $skipped ?? 0,
             'success' => $success,
             'failed'  => $failed,
         ]);
+
+        // Release DB lock jika kita berhasil mendapatkannya
+        try {
+            if (isset($gotLock) && $gotLock) {
+                \Illuminate\Support\Facades\DB::select('SELECT RELEASE_LOCK(?)', [$lockName]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('SyncShopeeInventoryJob: gagal release DB lock', ['error' => $e->getMessage()]);
+        }
     }
 
     private function doRefreshToken(AccountShopShopee $account, ShopeeApiService $shopeeService): void

@@ -19,6 +19,8 @@ class ProdukSaya extends Model
         'title',
         'product_status',
         'quantity',
+        'last_pushed_stock',
+        'last_pushed_at',
         'price',
         'seller_sku',
         'status_info',
@@ -29,6 +31,8 @@ class ProdukSaya extends Model
     {
         return [
             'quantity' => 'integer',
+            'last_pushed_stock' => 'integer',
+            'last_pushed_at' => 'datetime',
             'price'    => 'decimal:2',
         ];
     }
