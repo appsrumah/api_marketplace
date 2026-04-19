@@ -43,10 +43,26 @@ class DashboardController extends Controller
         $tiktokAccountIds = $tiktokAccounts->pluck('id');
         $shopeeAccountIds = $shopeeAccounts->pluck('id');
 
+        // Hitungan langsung dari database (memperhitungkan scope forUser() dan isSuperAdmin)
+        $tiktokCountQuery = $isSuperAdmin ? AccountShopTiktok::query() : AccountShopTiktok::forUser();
+        $shopeeCountQuery = $isSuperAdmin ? AccountShopShopee::query() : AccountShopShopee::forUser()->where('status', 'active');
+
+        $totalAccountsFromDb = $tiktokCountQuery->count() + $shopeeCountQuery->count();
+
+        $tiktokActiveCount = $isSuperAdmin
+            ? AccountShopTiktok::where('status', 'active')->count()
+            : AccountShopTiktok::forUser()->where('status', 'active')->count();
+
+        $shopeeActiveCount = $isSuperAdmin
+            ? AccountShopShopee::where('status', 'active')->count()
+            : AccountShopShopee::forUser()->where('status', 'active')->count();
+
+        $activeAccountsFromDb = $tiktokActiveCount + $shopeeActiveCount;
+
         $stats = [
-            'total_accounts'  => $accounts->count(),
-            // pastikan hanya menghitung akun dengan status 'active' dari gabungan akun
-            'active_accounts' => $accounts->where('status', 'active')->count(),
+            // gunakan nilai yang dihitung langsung dari tabel DB
+            'total_accounts'  => $totalAccountsFromDb,
+            'active_accounts' => $activeAccountsFromDb,
             'total_products'  => ProdukSaya::where(function ($q) use ($tiktokAccountIds, $shopeeAccountIds) {
                 $q->where(fn($s) => $s->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])->whereIn('account_id', $tiktokAccountIds))
                     ->orWhere(fn($s) => $s->where('platform', 'SHOPEE')->whereIn('account_id', $shopeeAccountIds));
