@@ -37,8 +37,23 @@ class DashboardController extends Controller
                 ->each(fn($a) => $a->platform = 'SHOPEE');
         }
 
-        // Gabungan untuk view
+        // Gabungan awal (dipakai sebelumnya untuk list).
         $accounts = $tiktokAccounts->merge($shopeeAccounts);
+
+        // Untuk memastikan daftar akun yang ditampilkan sesuai dengan
+        // perhitungan `active_accounts` (hanya akun berstatus 'active'),
+        // ambil ulang dari DB hanya akun-active dari kedua tabel,
+        // namun tetap menghormati scope `forUser()` untuk non-superadmin.
+        $tiktokForList = $isSuperAdmin
+            ? AccountShopTiktok::where('status', 'active')->withCount('produk')->latest()->get()->each(fn($a) => $a->platform = 'TIKTOK')
+            : AccountShopTiktok::forUser()->where('status', 'active')->withCount('produk')->latest()->get()->each(fn($a) => $a->platform = 'TIKTOK');
+
+        $shopeeForList = $isSuperAdmin
+            ? AccountShopShopee::where('status', 'active')->withCount('produk')->latest()->get()->each(fn($a) => $a->platform = 'SHOPEE')
+            : AccountShopShopee::forUser()->where('status', 'active')->withCount('produk')->latest()->get()->each(fn($a) => $a->platform = 'SHOPEE');
+
+        // Gunakan koleksi akun-active sebagai daftar yang ditampilkan di view
+        $accounts = $tiktokForList->merge($shopeeForList);
 
         $tiktokAccountIds = $tiktokAccounts->pluck('id');
         $shopeeAccountIds = $shopeeAccounts->pluck('id');
