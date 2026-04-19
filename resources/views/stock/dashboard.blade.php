@@ -57,7 +57,9 @@
                     </div>
                     <div class="text-right">
                         <p class="text-xs text-on-surface-variant">Terakhir Push</p>
-                        <p class="font-bold text-sm text-on-surface">{{ $a->last_pushed_at ? \\Carbon\\Carbon::parse($a->last_pushed_at)->format('d M Y H:i') : '—' }}</p>
+                        <p class="font-bold text-sm text-on-surface">
+                            {{ $a->last_pushed_at ? \Carbon\Carbon::parse($a->last_pushed_at)->format('d M Y H:i') : '-' }}
+                        </p>
                     </div>
                 </div>
 
