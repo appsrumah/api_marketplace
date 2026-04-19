@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SyncShopeeProductsJob;
 use App\Models\AccountShopShopee;
 use App\Models\ActivityLog;
 use App\Models\MarketplaceChannel;
@@ -212,13 +213,11 @@ class ShopeeAuthController extends Controller
         try {
             $this->authorizeAccount($account);
 
-            $result = $this->productSync->syncForAccount($account);
+            // Dispatch ke queue agar tidak timeout (340+ produk > 60 detik jika synchronous)
+            SyncShopeeProductsJob::dispatch($account->id)
+                ->onQueue('shopee-products');
 
-            if ($result['error']) {
-                return back()->with('warning', "Sync produk Shopee selesai dengan error: {$result['error']}. Produk tersimpan: {$result['saved']}");
-            }
-
-            return back()->with('success', "✅ Berhasil sync {$result['saved']} produk dari Shopee \"{$account->seller_name}\".");
+            return back()->with('success', "⏳ Sync produk Shopee \"{$account->seller_name}\" sedang diproses di background. Produk akan diperbarui dalam beberapa menit.");
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return redirect()->route('dashboard')->with('error', 'Akses ditolak: ' . $e->getMessage());
         } catch (\Throwable $e) {
@@ -227,7 +226,7 @@ class ShopeeAuthController extends Controller
                 'error'      => $e->getMessage(),
                 'trace'      => $e->getTraceAsString(),
             ]);
-            return redirect()->route('dashboard')->with('error', 'Gagal sync produk Shopee: ' . $e->getMessage());
+            return redirect()->route('dashboard')->with('error', 'Gagal memulai sync produk Shopee: ' . $e->getMessage());
         }
     }
 
