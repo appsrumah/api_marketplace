@@ -41,39 +41,51 @@
         .dark .swal2-title  { color: #e4e1f6 !important; }
         .dark .swal2-html-container { color: #c9c4d5 !important; }
 
-        /* ── Sidebar responsive: always visible on desktop (≥1024px),
-           slide-in on mobile/tablet via Alpine toggle ── */
+        /* ═══ SIDEBAR LAYOUT ══════════════════════════════════════════
+           Mobile: hidden by default via CSS (no Alpine flash).
+           State controlled by body.sidebar-open class (Alpine).
+           Desktop (≥1024px): always visible, header & main offset.
+        ══════════════════════════════════════════════════════════════ */
+        #app-sidebar {
+            transform: translateX(-100%);
+            transition: transform 0.25s ease-in-out;
+        }
+        body.sidebar-open #app-sidebar {
+            transform: translateX(0);
+        }
+        #mobile-overlay {
+            display: none;
+            pointer-events: none;
+        }
+        body.sidebar-open #mobile-overlay {
+            display: block;
+            pointer-events: auto;
+        }
+        #btn-hamburger {
+            display: flex;
+        }
         @media (min-width: 1024px) {
-            #app-sidebar {
-                transform: translateX(0) !important;
-            }
-            #app-main {
-                margin-left: 16rem; /* 256px = w-64 */
-            }
-            #app-header {
-                left: 16rem;
-            }
+            #app-sidebar   { transform: translateX(0) !important; }
+            #app-header    { left: 16rem !important; }
+            #app-main      { margin-left: 16rem !important; }
+            #mobile-overlay{ display: none !important; pointer-events: none !important; }
+            #btn-hamburger { display: none !important; }
         }
     </style>
 </head>
 <body class="h-full bg-surface font-sans text-on-surface antialiased"
-      x-data="{ sidebarOpen: false }" @keydown.escape.window="sidebarOpen = false">
+      x-data="{ sidebarOpen: false }"
+      x-bind:class="{ 'sidebar-open': sidebarOpen }"
+      @keydown.escape.window="sidebarOpen = false">
 
 {{-- ═══ MOBILE OVERLAY ════════════════════════════════════════════════ --}}
-<div x-show="sidebarOpen" x-cloak
+<div id="mobile-overlay"
      @click="sidebarOpen = false"
-     x-transition:enter="transition-opacity duration-200"
-     x-transition:enter-start="opacity-0"
-     x-transition:enter-end="opacity-100"
-     x-transition:leave="transition-opacity duration-200"
-     x-transition:leave-start="opacity-100"
-     x-transition:leave-end="opacity-0"
-     class="fixed inset-0 z-40 bg-black/50 lg:hidden"></div>
+     class="fixed inset-0 z-40 bg-black/50"></div>
 
 {{-- ═══ SIDEBAR ════════════════════════════════════════════════════════ --}}
 <aside id="app-sidebar"
-       :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
-       class="sidebar-dark fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-white/5 p-5 transition-transform duration-300 ease-in-out" style="background: #1e1449;">
+       class="sidebar-dark fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-white/5 p-5" style="background: #1e1449;">
 
     {{-- Brand + mobile close --}}
     <div class="mb-8 flex items-center justify-between">
@@ -162,8 +174,8 @@
     {{-- Left: Hamburger (mobile) + Breadcrumb --}}
     <div class="flex items-center gap-3">
         {{-- Hamburger — only on mobile/tablet --}}
-        <button @click="sidebarOpen = true"
-                class="flex lg:hidden h-9 w-9 items-center justify-center rounded-xl border border-outline-variant/30 bg-surface-container-lowest text-on-surface-variant shadow-whisper transition hover:bg-surface-container-low hover:text-primary">
+        <button id="btn-hamburger" @click="sidebarOpen = true"
+                class="flex h-9 w-9 items-center justify-center rounded-xl border border-outline-variant/30 bg-surface-container-lowest text-on-surface-variant shadow-whisper transition hover:bg-surface-container-low hover:text-primary">
             <span class="material-symbols-outlined text-[20px]">menu</span>
         </button>
         <p class="text-xs font-bold uppercase tracking-widest text-on-surface-variant hidden sm:block">

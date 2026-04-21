@@ -19,12 +19,13 @@ class DashboardController extends Controller
 
         // ── TikTok accounts ───────────────────────────────────────────
         // Super Admin melihat SEMUA akun tanpa filter kepemilikan/status
+        // Pertahankan nilai platform dari DB (TIKTOK atau TOKOPEDIA), default TIKTOK jika kosong
         if ($isSuperAdmin) {
             $tiktokAccounts = AccountShopTiktok::withCount('produk')->latest()->get()
-                ->each(fn($a) => $a->platform = 'TIKTOK');
+                ->each(fn($a) => $a->platform = ($a->getRawOriginal('platform') ?: 'TIKTOK'));
         } else {
             $tiktokAccounts = AccountShopTiktok::forUser()->withCount('produk')->latest()->get()
-                ->each(fn($a) => $a->platform = 'TIKTOK');
+                ->each(fn($a) => $a->platform = ($a->getRawOriginal('platform') ?: 'TIKTOK'));
         }
 
         // ── Shopee accounts ───────────────────────────────────────────

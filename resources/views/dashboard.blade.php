@@ -166,6 +166,25 @@
 </div>
 
 {{-- ═══════════════════════════════════════════════════════════
+     SUPER ADMIN DEBUG PANEL
+═══════════════════════════════════════════════════════════ --}}
+@if(auth()->user()?->isSuperAdmin())
+<div class="mt-4 rounded-xl border border-yellow-400/40 bg-yellow-50/50 dark:bg-yellow-900/10 p-3 text-xs font-mono text-yellow-900 dark:text-yellow-300">
+    <p class="font-bold mb-1">🔧 Debug (SuperAdmin only — akan dihapus)</p>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div>DB TikTok aktif: <b>{{ $debug['tiktok_active_db'] }}</b></div>
+        <div>DB Shopee aktif: <b>{{ $debug['shopee_active_db'] }}</b></div>
+        <div>Collection TikTok: <b>{{ $debug['tiktok_forlist_count'] }}</b></div>
+        <div>Collection Shopee: <b>{{ $debug['shopee_forlist_count'] }}</b></div>
+        <div>Total akun (DB): <b>{{ $stats['total_accounts'] }}</b></div>
+        <div>Total akun (list): <b>{{ $debug['accounts_list_count'] }}</b></div>
+        <div>Filter TikTok+Tokopedia: <b>{{ $accounts->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])->count() }}</b></div>
+        <div>Filter Shopee: <b>{{ $accounts->where('platform', 'SHOPEE')->count() }}</b></div>
+    </div>
+</div>
+@endif
+
+{{-- ═══════════════════════════════════════════════════════════
      ACCOUNT LIST — with platform filter tabs
 ═══════════════════════════════════════════════════════════ --}}
 <div class="mt-8" x-data="accountFilter()">
@@ -196,10 +215,10 @@
                     class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-150"
                     :style="filter === 'tiktok' ? 'color:#fe2c55' : ''">
                 <span class="material-symbols-outlined text-[14px]">play_circle</span>
-                TikTok
+                TikTok & Tokopedia
                 <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
                       :style="filter === 'tiktok' ? 'background:#fe2c5515;color:#fe2c55' : 'background:rgba(0,0,0,0.06);color:inherit'">
-                    {{ $accounts->where('platform', 'TIKTOK')->count() }}
+                    {{ $accounts->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])->count() }}
                 </span>
             </button>
             <button @click="filter = 'shopee'"
@@ -240,7 +259,17 @@
                     $tokenOk    = $isActive && !$account->isTokenExpired();
                     $displayName = $account->platform === 'SHOPEE'
                         ? ($account->seller_name ?? 'Shopee Shop')
-                        : ($account->shop_name ?: $account->seller_name ?? 'TikTok Shop');
+                        : ($account->shop_name ?: $account->seller_name ?? ($account->platform === 'TOKOPEDIA' ? 'Tokopedia Shop' : 'TikTok Shop'));
+                    $accentStyle = match($account->platform) {
+                        'SHOPEE' => 'background:linear-gradient(90deg,#ee4d2d,#ff7337)',
+                        'TOKOPEDIA' => 'background:linear-gradient(90deg,#42b549,#00a650)',
+                        default => '', // uses primary-gradient class
+                    };
+                    $avatarStyle = match($account->platform) {
+                        'SHOPEE' => 'background:linear-gradient(135deg,#ee4d2d,#ff7337)',
+                        'TOKOPEDIA' => 'background:linear-gradient(135deg,#42b549,#00a650)',
+                        default => '', // uses primary-gradient class
+                    };
                 @endphp
 
                 <div class="group relative overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-outline-variant/20"
@@ -250,8 +279,8 @@
                      x-transition:enter-end="opacity-100 scale-100">
 
                     {{-- Top accent line by platform --}}
-                    <div class="h-0.5 w-full {{ $account->platform === 'SHOPEE' ? '' : 'primary-gradient' }}"
-                         @if($account->platform === 'SHOPEE') style="background:linear-gradient(90deg,#ee4d2d,#ff7337)" @endif></div>
+                    <div class="h-0.5 w-full {{ $account->platform === 'TIKTOK' ? 'primary-gradient' : '' }}"
+                         @if($account->platform !== 'TIKTOK') style="{{ $accentStyle }}" @endif></div>
 
                     <div class="p-4 sm:p-5">
 
@@ -260,8 +289,8 @@
                             <div class="flex items-center gap-3 min-w-0">
                                 {{-- Avatar --}}
                                 <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-black text-white shadow-sm
-                                            {{ $account->platform === 'SHOPEE' ? '' : 'primary-gradient' }}"
-                                     @if($account->platform === 'SHOPEE') style="background:linear-gradient(135deg,#ee4d2d,#ff7337)" @endif>
+                                            {{ $account->platform === 'TIKTOK' ? 'primary-gradient' : '' }}"
+                                     @if($account->platform !== 'TIKTOK') style="{{ $avatarStyle }}" @endif>
                                     {{ strtoupper(mb_substr($displayName, 0, 1)) }}
                                 </div>
                                 <div class="min-w-0">
@@ -271,6 +300,10 @@
                                         @if($account->platform === 'SHOPEE')
                                             <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style="background:#ee4d2d15;color:#ee4d2d">
                                                 <span class="material-symbols-outlined text-[10px]">shopping_bag</span>Shopee
+                                            </span>
+                                        @elseif($account->platform === 'TOKOPEDIA')
+                                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style="background:#42b54915;color:#42b549">
+                                                <span class="material-symbols-outlined text-[10px]">storefront</span>Tokopedia
                                             </span>
                                         @else
                                             <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" style="background:#fe2c5515;color:#fe2c55">
@@ -398,7 +431,7 @@ function accountFilter() {
         filter: 'all',
         get visibleCount() {
             if (this.filter === 'all') return {{ $accounts->count() }};
-            if (this.filter === 'tiktok') return {{ $accounts->where('platform', 'TIKTOK')->count() }};
+            if (this.filter === 'tiktok') return {{ $accounts->whereIn('platform', ['TIKTOK', 'TOKOPEDIA'])->count() }};
             if (this.filter === 'shopee') return {{ $accounts->where('platform', 'SHOPEE')->count() }};
             return 0;
         }
