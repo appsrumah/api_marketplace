@@ -42,14 +42,8 @@
         .dark .swal2-html-container { color: #c9c4d5 !important; }
     </style>
 </head>
-<body class="h-full bg-surface font-sans text-on-surface antialiased">
-
-{{-- ══════════════════════════════════════════════════════════════════════
-     OMNICORE LAYOUT: Sidebar (fixed left) + Top Header (fixed) + Main
-     Mobile: sidebar hidden by default, toggled via hamburger
-     ════════════════════════════════════════════════════════════════════ --}}
-
-<div x-data="{ sidebarOpen: false }" @keydown.escape.window="sidebarOpen = false">
+<body class="h-full bg-surface font-sans text-on-surface antialiased"
+      x-data="{ sidebarOpen: false }" @keydown.escape.window="sidebarOpen = false">
 
 {{-- ═══ MOBILE OVERLAY ════════════════════════════════════════════════ --}}
 <div x-show="sidebarOpen" x-cloak
@@ -280,8 +274,6 @@ document.addEventListener('DOMContentLoaded', function () {
         @yield('content')
     </div>
 </main>
-
-</div>{{-- /x-data sidebarOpen --}}
 
 @stack('scripts')
 </body>
