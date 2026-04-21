@@ -598,20 +598,33 @@ class StockController extends Controller
             }
         }
 
-        // ── STEP 2: Guard — skip jika masih ada batch jobs pending ───────
+        // ── STEP 2: Guard — skip HANYA jika ada jobs yang sedang aktif diproses ──
+        // Menggunakan reserved_at (bukan pending count) agar tidak skip saat
+        // worker idle tapi masih ada job sisa dari batch sebelumnya.
         try {
-            $pending = \Illuminate\Support\Facades\DB::table('jobs')
+            $activeThreshold = now()->subMinutes(3)->timestamp;
+
+            $activelyRunning = \Illuminate\Support\Facades\DB::table('jobs')
                 ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
+                ->whereNotNull('reserved_at')
+                ->where('reserved_at', '>=', $activeThreshold)
                 ->count();
 
-            if ($pending > 0) {
+            if ($activelyRunning > 0) {
                 return response()->json([
-                    'status'          => 'skipped_jobs_still_pending',
+                    'status'          => 'skipped_jobs_still_running',
                     'product_sync'    => $productSyncResult ?: null,
-                    'reason'          => 'Masih ada batch jobs pending di queue, dispatch dilewati.',
-                    'jobs_pending'    => $pending,
+                    'reason'          => 'Masih ada batch jobs yang sedang aktif diproses oleh worker.',
+                    'jobs_running'    => $activelyRunning,
                 ], 200, [], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
             }
+
+            // Bersihkan stuck jobs (reserved > 10 menit) agar tidak memblokir
+            \Illuminate\Support\Facades\DB::table('jobs')
+                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
+                ->whereNotNull('reserved_at')
+                ->where('reserved_at', '<', now()->subMinutes(10)->timestamp)
+                ->update(['reserved_at' => null]);
         } catch (\Throwable $e) {
         }
 
