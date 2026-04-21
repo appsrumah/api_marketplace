@@ -168,7 +168,7 @@
 {{-- ═══════════════════════════════════════════════════════════
      SUPER ADMIN DEBUG PANEL
 ═══════════════════════════════════════════════════════════ --}}
-@if(auth()->user()?->isSuperAdmin())
+{{-- @if(auth()->user()?->isSuperAdmin())
 <div class="mt-4 rounded-xl border border-yellow-400/40 bg-yellow-50/50 dark:bg-yellow-900/10 p-3 text-xs font-mono text-yellow-900 dark:text-yellow-300">
     <p class="font-bold mb-1">🔧 Debug (SuperAdmin only — akan dihapus)</p>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -182,7 +182,7 @@
         <div>Filter Shopee: <b>{{ $accounts->where('platform', 'SHOPEE')->count() }}</b></div>
     </div>
 </div>
-@endif
+@endif --}}
 
 {{-- ═══════════════════════════════════════════════════════════
      ACCOUNT LIST — with platform filter tabs
