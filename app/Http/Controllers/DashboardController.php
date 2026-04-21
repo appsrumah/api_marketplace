@@ -38,30 +38,20 @@ class DashboardController extends Controller
                 ->each(fn($a) => $a->platform = 'SHOPEE');
         }
 
-        // Gabungan awal (dipakai sebelumnya untuk list).
+        // Gabungan SEMUA akun (active + non-active) untuk list di view
         $accounts = $tiktokAccounts->merge($shopeeAccounts);
 
-        // Untuk memastikan daftar akun yang ditampilkan sesuai dengan
-        // perhitungan `active_accounts` (hanya akun berstatus 'active'),
-        // ambil ulang dari DB hanya akun-active dari kedua tabel,
-        // namun tetap menghormati scope `forUser()` untuk non-superadmin.
-        $tiktokForList = $isSuperAdmin
-            ? AccountShopTiktok::where('status', 'active')->withCount('produk')->latest()->get()->each(fn($a) => $a->platform = 'TIKTOK')
-            : AccountShopTiktok::forUser()->where('status', 'active')->withCount('produk')->latest()->get()->each(fn($a) => $a->platform = 'TIKTOK');
-
-        $shopeeForList = $isSuperAdmin
-            ? AccountShopShopee::where('status', 'active')->withCount('produk')->latest()->get()->each(fn($a) => $a->platform = 'SHOPEE')
-            : AccountShopShopee::forUser()->where('status', 'active')->withCount('produk')->latest()->get()->each(fn($a) => $a->platform = 'SHOPEE');
-
-        // Gunakan koleksi akun-active sebagai daftar yang ditampilkan di view
-        $accounts = $tiktokForList->merge($shopeeForList);
+        // Alias untuk debug compat
+        $tiktokForList = $tiktokAccounts;
+        $shopeeForList = $shopeeAccounts;
 
         $tiktokAccountIds = $tiktokAccounts->pluck('id');
         $shopeeAccountIds = $shopeeAccounts->pluck('id');
 
         // Hitungan langsung dari database (memperhitungkan scope forUser() dan isSuperAdmin)
+        // total_accounts = SEMUA akun (active + non-active) agar sesuai dengan list di view
         $tiktokCountQuery = $isSuperAdmin ? AccountShopTiktok::query() : AccountShopTiktok::forUser();
-        $shopeeCountQuery = $isSuperAdmin ? AccountShopShopee::query() : AccountShopShopee::forUser()->where('status', 'active');
+        $shopeeCountQuery = $isSuperAdmin ? AccountShopShopee::query() : AccountShopShopee::forUser();
 
         $totalAccountsFromDb = $tiktokCountQuery->count() + $shopeeCountQuery->count();
 
