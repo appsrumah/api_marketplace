@@ -40,6 +40,20 @@
         .dark .swal2-popup  { background: #1e1c3c !important; color: #e4e1f6 !important; }
         .dark .swal2-title  { color: #e4e1f6 !important; }
         .dark .swal2-html-container { color: #c9c4d5 !important; }
+
+        /* ── Sidebar responsive: always visible on desktop (≥1024px),
+           slide-in on mobile/tablet via Alpine toggle ── */
+        @media (min-width: 1024px) {
+            #app-sidebar {
+                transform: translateX(0) !important;
+            }
+            #app-main {
+                margin-left: 16rem; /* 256px = w-64 */
+            }
+            #app-header {
+                left: 16rem;
+            }
+        }
     </style>
 </head>
 <body class="h-full bg-surface font-sans text-on-surface antialiased"
@@ -57,7 +71,8 @@
      class="fixed inset-0 z-40 bg-black/50 lg:hidden"></div>
 
 {{-- ═══ SIDEBAR ════════════════════════════════════════════════════════ --}}
-<aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+<aside id="app-sidebar"
+       :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
        class="sidebar-dark fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-white/5 p-5 transition-transform duration-300 ease-in-out" style="background: #1e1449;">
 
     {{-- Brand + mobile close --}}
@@ -142,7 +157,7 @@
 </aside>
 
 {{-- ═══ TOP HEADER ══════════════════════════════════════════════════════ --}}
-<header class="fixed left-0 lg:left-64 right-0 top-0 z-40 flex h-16 items-center justify-between border-b border-outline-variant/20 px-4 sm:px-6 lg:px-8 glass-header shadow-whisper">
+<header id="app-header" class="fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between border-b border-outline-variant/20 px-4 sm:px-6 lg:px-8 glass-header shadow-whisper">
 
     {{-- Left: Hamburger (mobile) + Breadcrumb --}}
     <div class="flex items-center gap-3">
@@ -269,7 +284,7 @@ document.addEventListener('DOMContentLoaded', function () {
 @endif
 
 {{-- ═══ MAIN CONTENT ════════════════════════════════════════════════════ --}}
-<main class="ml-0 lg:ml-64 min-h-screen pt-16">
+<main id="app-main" class="ml-0 min-h-screen pt-16">
     <div class="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         @yield('content')
     </div>
