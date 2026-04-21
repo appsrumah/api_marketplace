@@ -40,7 +40,9 @@ class DashboardController extends Controller
         }
 
         // Gabungan SEMUA akun (active + non-active) untuk list di view
-        $accounts = $tiktokAccounts->merge($shopeeAccounts);
+        // PENTING: gunakan concat() bukan merge() — merge() menggabungkan by primary key (ID)
+        // sehingga ID TikTok 1-9 akan ditimpa Shopee ID 1-9. concat() tidak peduli dengan key.
+        $accounts = $tiktokAccounts->concat($shopeeAccounts);
 
         // Alias untuk debug compat
         $tiktokForList = $tiktokAccounts;
