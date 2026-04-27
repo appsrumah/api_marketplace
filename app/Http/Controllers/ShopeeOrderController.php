@@ -383,7 +383,7 @@ class ShopeeOrderController extends Controller
             $timestamp = time();
             $sign      = $this->shopeeService->buildShopSign($path, $timestamp, $accessToken, $shopId);
 
-            $response = \Illuminate\Support\Facades\Http::get(
+            $response = \Illuminate\Support\Facades\Http::timeout(15)->connectTimeout(10)->get(
                 rtrim(config('services.shopee.api_base'), '/') . $path,
                 [
                     'partner_id'             => (int) config('services.shopee.partner_id'),

@@ -206,11 +206,26 @@ class UnifiedOrderController extends Controller
         }
 
         // Delegate ke masing-masing controller (service injection via app())
-        $tiktokResponse = app(OrderController::class)->cronSyncAll($request);
-        $shopeeResponse = app(ShopeeOrderController::class)->cronSyncAll($request);
+        // Setiap platform dibungkus try-catch agar kegagalan 1 platform
+        // tidak merusak platform lain (dan tidak return 500).
+        $tiktokData = ['status' => 'skipped', 'reason' => 'not started'];
+        $shopeeData = ['status' => 'skipped', 'reason' => 'not started'];
 
-        $tiktokData = json_decode($tiktokResponse->getContent(), true) ?? [];
-        $shopeeData = json_decode($shopeeResponse->getContent(), true) ?? [];
+        try {
+            $tiktokResponse = app(OrderController::class)->cronSyncAll($request);
+            $tiktokData = json_decode($tiktokResponse->getContent(), true) ?? [];
+        } catch (\Throwable $e) {
+            $tiktokData = ['status' => 'ERROR', 'error' => $e->getMessage()];
+            \Illuminate\Support\Facades\Log::error('UnifiedCron TikTok failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            $shopeeResponse = app(ShopeeOrderController::class)->cronSyncAll($request);
+            $shopeeData = json_decode($shopeeResponse->getContent(), true) ?? [];
+        } catch (\Throwable $e) {
+            $shopeeData = ['status' => 'ERROR', 'error' => $e->getMessage()];
+            \Illuminate\Support\Facades\Log::error('UnifiedCron Shopee failed', ['error' => $e->getMessage()]);
+        }
 
         return response()->json([
             'status' => 'OK',

@@ -174,7 +174,7 @@ class ShopeeApiService
         $timestamp = time();
         $sign      = $this->buildShopSign($path, $timestamp, $accessToken, $shopId);
 
-        $response = Http::get($this->apiBase . $path, [
+        $response = Http::timeout(15)->connectTimeout(10)->get($this->apiBase . $path, [
             'partner_id'   => $this->partnerId,
             'timestamp'    => $timestamp,
             'sign'         => $sign,
@@ -198,7 +198,7 @@ class ShopeeApiService
         $timestamp = time();
         $sign      = $this->buildShopSign($path, $timestamp, $accessToken, $shopId);
 
-        $response = Http::get($this->apiBase . $path, [
+        $response = Http::timeout(15)->connectTimeout(10)->get($this->apiBase . $path, [
             'partner_id'   => $this->partnerId,
             'timestamp'    => $timestamp,
             'sign'         => $sign,
@@ -223,7 +223,7 @@ class ShopeeApiService
         $timestamp = time();
         $sign      = $this->buildShopSign($path, $timestamp, $accessToken, $shopId);
 
-        $response = Http::get($this->apiBase . $path, [
+        $response = Http::timeout(15)->connectTimeout(10)->get($this->apiBase . $path, [
             'partner_id'   => $this->partnerId,
             'timestamp'    => $timestamp,
             'sign'         => $sign,
@@ -269,7 +269,7 @@ class ShopeeApiService
             $params['cursor'] = $cursor;
         }
 
-        $response = Http::get($this->apiBase . $path, $params);
+        $response = Http::timeout(15)->connectTimeout(10)->get($this->apiBase . $path, $params);
         return $response->json();
     }
 
