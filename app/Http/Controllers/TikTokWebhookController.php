@@ -38,6 +38,13 @@ class TikTokWebhookController extends Controller
      */
     public function handle(Request $request): JsonResponse
     {
+        // ⛔ WEBHOOK SEMENTARA DINONAKTIFKAN — untuk pengecekan/debugging
+        // Hapus blok ini untuk mengaktifkan kembali.
+        Log::info('TikTokWebhook: disabled (maintenance mode), payload ignored', [
+            'ip' => $request->ip(),
+        ]);
+        return response()->json(['code' => 0, 'message' => 'OK']);
+
         $startTime = microtime(true);
 
         // 1. Ambil raw body dan decode
