@@ -440,7 +440,7 @@
                     </table>
                 </div>
 
-                {{-- Pagination --}}
+                <!-- Pagination -->
                 <div class="border-t border-outline-variant/20 px-4 py-4">
                     {{ $produkSiapSync->links() }}
                 </div>
