@@ -3,7 +3,7 @@
 @section('breadcrumb', 'Stok - Sinkronisasi Otomatis')
 
 @section('content')
-<div x-data="stockSync()" x-init="init()" @destroy="destroy()" x-cloak>
+<div x-data="stockSync()" x-init="init()" x-cloak>
 
     {{-- HEADER --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -44,43 +44,6 @@
                 Log Sync
             </a>
         </div>
-    </div>
-
-    {{-- LAST PUSH SUMMARY (per akun) --}}
-    <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        @foreach($accounts as $a)
-            <div class="rounded-2xl bg-surface-container p-4 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-semibold text-on-surface">{{ $a->seller_name }}</p>
-                        <p class="text-xs text-on-surface-variant">{{ $a->platform }} • Outlet: {{ $a->id_outlet ?? '—' }}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-xs text-on-surface-variant">Terakhir Push</p>
-                        <p class="font-bold text-sm text-on-surface">
-                            {{ $a->last_pushed_at ? \Carbon\Carbon::parse($a->last_pushed_at)->format('d M Y H:i') : '-' }}
-                        </p>
-                    </div>
-                </div>
-
-                <div class="mt-3 flex items-center justify-between text-[13px] text-on-surface-variant">
-                    <div>
-                        <p class="text-[11px]">Produk total</p>
-                        <p class="font-semibold text-sm text-on-surface">{{ number_format($a->products_total ?? 0) }}</p>
-                    </div>
-                    <div>
-                        <p class="text-[11px]">Ter-push</p>
-                        <p class="font-semibold text-sm text-on-surface">{{ number_format($a->last_pushed_count ?? 0) }}</p>
-                    </div>
-                    <div>
-                        <p class="text-[11px]">Skipped</p>
-                        <p class="font-semibold text-sm text-on-surface">
-                            {{ data_get($a, 'last_run_skipped') !== null ? number_format(data_get($a, 'last_run_skipped')) : '—' }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        @endforeach
     </div>
 
     {{-- STATS CARDS --}}
@@ -144,167 +107,6 @@
     </div>
 
 
-    {{-- ═══════════════════════════════════════════════════════════════
-         LIVE MONITOR — Progress sync stok real-time (polling 5 detik)
-    ═══════════════════════════════════════════════════════════════ --}}
-    <div class="mt-6 overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
-        {{-- Header --}}
-        <div class="flex items-center justify-between gap-3 border-b border-outline-variant/20 bg-surface-container-low px-5 py-3">
-            <div class="flex items-center gap-2">
-                <span class="relative flex h-2.5 w-2.5">
-                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
-                          :class="liveStatus && liveStatus.queue.total > 0 ? 'bg-primary' : 'bg-secondary'"></span>
-                    <span class="relative inline-flex h-2.5 w-2.5 rounded-full"
-                          :class="liveStatus && liveStatus.queue.total > 0 ? 'bg-primary' : 'bg-secondary'"></span>
-                </span>
-                <h3 class="text-sm font-bold text-on-surface">Live Monitor Sync Stok</h3>
-                <span class="rounded-full bg-surface-container px-2 py-0.5 text-[10px] text-on-surface-variant">Auto-refresh 5 detik</span>
-            </div>
-            <span class="text-[10px] text-on-surface-variant/60"
-                  x-text="liveStatus ? 'Dicek: ' + new Date(liveStatus.checked_at).toLocaleTimeString('id-ID') : 'Memuat...'"></span>
-        </div>
-        {{-- Queue summary --}}
-        <div class="grid grid-cols-4 divide-x divide-outline-variant/20 border-b border-outline-variant/20">
-            <div class="px-5 py-3 text-center">
-                <p class="text-xs font-medium text-on-surface-variant">Antri (siap)</p>
-                <p class="mt-0.5 text-xl font-bold"
-                   :class="liveStatus && liveStatus.queue.available > 0 ? 'text-secondary' : 'text-on-surface-variant/40'"
-                   x-text="liveStatus ? liveStatus.queue.available : '—'"></p>
-            </div>
-            <div class="px-5 py-3 text-center">
-                <p class="text-xs font-medium text-on-surface-variant">Menunggu retry</p>
-                <p class="mt-0.5 text-xl font-bold"
-                   :class="liveStatus && liveStatus.queue.delayed > 0 ? 'text-amber-500' : 'text-on-surface-variant/40'"
-                   x-text="liveStatus ? liveStatus.queue.delayed : '—'"></p>
-            </div>
-            <div class="px-5 py-3 text-center">
-                <p class="text-xs font-medium text-on-surface-variant">Sedang jalan</p>
-                <p class="mt-0.5 text-xl font-bold"
-                   :class="liveStatus && liveStatus.queue.running > 0 ? 'text-primary' : 'text-on-surface-variant/40'"
-                   x-text="liveStatus ? liveStatus.queue.running : '—'"></p>
-            </div>
-            <div class="px-5 py-3 text-center">
-                <p class="text-xs font-medium text-on-surface-variant">Gagal total</p>
-                <p class="mt-0.5 text-xl font-bold"
-                   :class="liveStatus && liveStatus.queue.failed > 0 ? 'text-error' : 'text-on-surface-variant/40'"
-                   x-text="liveStatus ? liveStatus.queue.failed : '—'"></p>
-            </div>
-        </div>
-        {{-- Per-akun progress rows --}}
-        {{-- CATATAN: gunakan Array.isArray() agar aman ketika accounts undefined/null --}}
-        <div x-show="liveStatus && Array.isArray(liveStatus.accounts) && liveStatus.accounts.length > 0"
-             class="divide-y divide-outline-variant/10">
-            <template x-for="acc in (liveStatus && Array.isArray(liveStatus.accounts) ? liveStatus.accounts : [])"
-                      :key="(acc.platform || 'X') + '_' + acc.account_id">
-                <div class="flex items-center gap-4 px-5 py-3">
-                    {{-- Avatar huruf pertama — null-safe --}}
-                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-sm"
-                         :class="acc.platform === 'SHOPEE' ? 'bg-orange-500' : 'primary-gradient'"
-                         x-text="(acc.account_name || '?').charAt(0).toUpperCase()"></div>
-
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <div class="flex min-w-0 items-center gap-1.5">
-                                <p class="truncate text-sm font-semibold text-on-surface" x-text="acc.account_name || '—'"></p>
-                                {{-- Platform badge --}}
-                                <span class="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold"
-                                      :class="acc.platform === 'SHOPEE' ? 'bg-orange-500/20 text-orange-700' : 'bg-primary/10 text-primary'"
-                                      x-text="acc.platform || 'TIKTOK'"></span>
-                            </div>
-                            {{-- Status badge --}}
-                            <span class="shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
-                                  :class="{
-                                      'bg-primary/10 text-primary':                              acc.progress && acc.progress.status === 'running',
-                                      'bg-secondary-container text-on-secondary-container':      acc.progress && acc.progress.status === 'completed',
-                                      'bg-error-container text-on-error-container':              acc.progress && acc.progress.status === 'failed',
-                                      'bg-tertiary-fixed text-on-tertiary-fixed-variant':        acc.progress && acc.progress.status === 'starting',
-                                      'bg-surface-container text-on-surface-variant':            !acc.progress || acc.progress.status === 'skipped' || acc.progress.status === 'idle',
-                                  }"
-                                  x-text="acc.progress
-                                      ? ({'running':'▶ Sedang jalan','starting':'⏳ Memulai...','completed':'✅ Selesai','failed':'❌ Gagal','skipped':'⚠ Outlet kosong'}[acc.progress.status] ?? acc.progress.status)
-                                      : 'Idle'">
-                            </span>
-                        </div>
-
-                        {{-- Progress bar (running / starting) --}}
-                        <template x-if="acc.progress && (acc.progress.status === 'running' || acc.progress.status === 'starting')">
-                            <div class="mt-1.5">
-                                <div class="flex items-center justify-between text-[10px] text-on-surface-variant">
-                                    <span x-text="(acc.progress.current ?? 0) + ' / ' + (acc.progress.total ?? 0) + ' SKU'"></span>
-                                    <span class="font-bold text-primary"
-                                          x-text="(acc.progress.total ?? 0) > 0 ? Math.round((acc.progress.current ?? 0) / acc.progress.total * 100) + '%' : '0%'"></span>
-                                </div>
-                                <div class="mt-1 h-2 w-full overflow-hidden rounded-full bg-surface-container">
-                                    <div class="h-full rounded-full bg-primary transition-all duration-500"
-                                         :style="'width:' + ((acc.progress.total ?? 0) > 0 ? Math.round((acc.progress.current ?? 0) / acc.progress.total * 100) : 0) + '%'"></div>
-                                </div>
-                                <p class="mt-0.5 text-[10px] text-on-surface-variant/70"
-                                   x-text="'✓ ' + (acc.progress.success ?? 0) + ' berhasil · ✗ ' + (acc.progress.failed ?? 0) + ' gagal'"></p>
-                            </div>
-                        </template>
-
-                        {{-- Selesai --}}
-                        <p x-show="acc.progress && acc.progress.status === 'completed'"
-                           class="mt-0.5 text-[10px] text-on-surface-variant"
-                           x-text="acc.progress
-                               ? '✓ ' + (acc.progress.success ?? 0) + ' berhasil · ✗ ' + (acc.progress.failed ?? 0) + ' gagal dari ' + (acc.progress.total ?? 0) + ' SKU · selesai ' + (acc.progress.finished_at ? new Date(acc.progress.finished_at).toLocaleTimeString('id-ID') : '')
-                               : ''"></p>
-
-                        {{-- Error --}}
-                        <p x-show="acc.progress && acc.progress.status === 'failed'"
-                           class="mt-0.5 truncate text-[10px] text-error"
-                           x-text="acc.progress ? (acc.progress.error || 'Job gagal') : ''"></p>
-
-                        {{-- Idle / no progress --}}
-                        <p x-show="!acc.progress || !['running','starting','completed','failed'].includes(acc.progress ? acc.progress.status : '')"
-                           class="mt-0.5 text-[10px] text-on-surface-variant/60"
-                           x-text="acc.last_update_human ? 'Terakhir sync: ' + acc.last_update_human : 'Belum pernah sync'"></p>
-                    </div>
-
-                    {{-- Tombol Sync 1 akun --}}
-                    <button @click="doSyncAccount(acc.account_id, acc.account_name)"
-                            :disabled="loading || (acc.progress && acc.progress.status === 'running')"
-                            class="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface transition hover:bg-surface-container-high disabled:cursor-not-allowed disabled:opacity-50">
-                        <span class="material-symbols-outlined text-[14px]"
-                              :class="(loadingAction === 'sync-account-' + acc.account_id) || (acc.progress && acc.progress.status === 'running') ? 'animate-spin' : ''">sync</span>
-                        <span x-text="acc.progress && acc.progress.status === 'running' ? 'Jalan...' : 'Sync'"></span>
-                    </button>
-                </div>
-            </template>
-        </div>
-
-        {{-- Empty state: liveStatus ada tapi accounts kosong (semua filtered out) --}}
-        <div x-show="liveStatus && Array.isArray(liveStatus.accounts) && liveStatus.accounts.length === 0"
-             class="px-5 py-4 text-center text-sm text-on-surface-variant/60">
-            Tidak ada akun aktif yang terdaftar.
-        </div>
-        {{-- Error panel — muncul jika ada failed jobs --}}
-        <div x-show="liveStatus && liveStatus.queue.failed > 0 && liveStatus.recent_errors && liveStatus.recent_errors.length"
-             class="border-t border-outline-variant/20 bg-error-container/20 px-5 py-3">
-            <p class="mb-2 flex items-center gap-1.5 text-xs font-bold text-error">
-                <span class="material-symbols-outlined text-[14px]">error</span>
-                <span x-text="liveStatus.queue.failed + ' job gagal — ' + liveStatus.recent_errors.length + ' error terakhir:'"></span>
-                <button @click="doClearFailed()"
-                        class="ml-auto rounded-lg bg-error/10 px-2 py-0.5 text-[10px] font-semibold text-error hover:bg-error/20">
-                    Hapus & Dispatch Ulang
-                </button>
-            </p>
-            <template x-for="(err, i) in liveStatus.recent_errors" :key="i">
-                <div class="mb-1 rounded-lg bg-surface-container-lowest px-3 py-2">
-                    <p class="text-[10px] font-semibold text-on-surface" x-text="err.job + ' — ' + err.failed_at"></p>
-                    <p class="mt-0.5 truncate font-mono text-[10px] text-error" x-text="err.error"></p>
-                </div>
-            </template>
-        </div>
-        {{-- Loading skeleton --}}
-        <div x-show="!liveStatus" class="px-5 py-6 text-center text-sm text-on-surface-variant">
-            <svg class="mx-auto mb-2 h-5 w-5 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
-            Memuat status...
-        </div>
-    </div>
     {{-- OUTPUT PANEL (muncul setelah klik tombol) --}}
     <div x-show="loading || result || error" x-transition
          class="mt-6 overflow-hidden rounded-2xl bg-surface-container-lowest shadow-whisper">
@@ -389,14 +191,6 @@
             </div>
         </div>
 
-di atas. Cron worker akan memproses dalam ~1 menit.</p>
-                    </div>
-                    <div x-show="result && result.jobs_remaining === 0" class="mt-3 rounded-xl bg-surface-container p-3">
-                        <p class="text-xs text-on-surface-variant">Antrian kosong. Klik <strong class="text-secondary">Sync Semua Akun</strong> untuk mulai sync stok.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
         {{-- Result: Sync Account success --}}
         <div x-show="result && !loading && result.account && result.status === 'Jobs dispatched'" class="p-6">
             <div class="flex items-start gap-4 rounded-xl bg-secondary-container/30 p-4">
@@ -405,9 +199,9 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                 </div>
                 <div>
                     <p class="font-bold text-on-surface">
-                    <span x-text="result.queued"></span> jobs untuk akun <em x-text="result.account"></em>
+                        ✅ <span x-text="result ? result.queued : 0"></span> jobs untuk akun <em x-text="result ? result.account : ''"></em>
                     </p>
-                    <p class="mt-1 text-sm text-on-surface-variant">Job masuk ke antrian. Cron worker memproses otomatis dalam ~1 menit. Pantau di <strong class="text-primary">Live Monitor</strong>.</p>
+                    <p class="mt-1 text-sm text-on-surface-variant">Job masuk ke antrian. Cron worker memproses otomatis dalam ~1 menit.</p>
                 </div>
             </div>
         </div>
@@ -419,9 +213,9 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                     <span class="material-symbols-outlined text-[16px]">error</span>
                 </div>
                 <div>
-                    <p class="font-bold text-on-error-container">âŒ Error dari server</p>
-                    <p class="mt-1 text-sm text-on-error-container/80" x-text="result.pesan"></p>
-                    <p x-show="result.tip" class="mt-1 text-xs text-on-error-container/60" x-text="'ðŸ’¡ ' + result.tip"></p>
+                    <p class="font-bold text-on-error-container">❌ Error dari server</p>
+                    <p class="mt-1 text-sm text-on-error-container/80" x-text="result ? result.pesan : ''"></p>
+                    <p x-show="result && result.tip" class="mt-1 text-xs text-on-error-container/60" x-text="result && result.tip ? '💡 ' + result.tip : ''"></p>
                 </div>
             </div>
         </div>
@@ -555,12 +349,10 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
         </div>
     </div>
 
-    {{-- PRODUK SIAP SYNC TABLE --}}
-    <div class="mt-10">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="font-headline text-lg font-bold text-on-surface">
-                    Produk Siap Disinkronisasi
+    {{-- INFO CRON (footer panel) --}}
+    {{-- Produk table dihapus — terlalu berat, gunakan Log Sync untuk detail --}}
+    {{-- <div class="mt-10">
+        Produk Siap Disinkronisasi
                     <span class="ml-2 inline-flex items-center rounded-full bg-secondary-container px-2.5 py-0.5 text-xs font-bold text-on-secondary-container">
                         {{ number_format($totalSiapSync) }} total
                     </span>
@@ -654,9 +446,8 @@ di atas. Cron worker akan memproses dalam ~1 menit.</p>
                 </div>
             @endif
         </div>
-    </div>
+    </div> --}}
 
-    {{--INFO CRON (footer panel) --}}
     {{-- <div class="mt-8 rounded-2xl bg-surface-container-low p-5">
         <h3 class="flex items-center gap-2 text-sm font-bold text-on-surface">
             <span class="material-symbols-outlined text-[18px] text-on-surface-variant">schedule</span>
@@ -691,25 +482,9 @@ function stockSync() {
         result: null,
         error: null,
         jobsRemaining: null,
-        liveStatus: null,
-        _pollTimer: null,
 
         init() {
-            this.fetchLiveStatus();
-            this._pollTimer = setInterval(() => this.fetchLiveStatus(), 5000);
-        },
-
-        destroy() {
-            if (this._pollTimer) clearInterval(this._pollTimer);
-        },
-
-        async fetchLiveStatus() {
-            try {
-                const res = await fetch('{{ route("stock.sync-progress") }}', {
-                    headers: { 'Accept': 'application/json' }
-                });
-                this.liveStatus = await res.json();
-            } catch (e) { /* silent — jangan ganggu UI jika network error */ }
+            // live monitor dinonaktifkan — tidak ada polling
         },
 
         async doSyncAll() {
@@ -757,7 +532,6 @@ function stockSync() {
                     }
                 })
             );
-            await this.fetchLiveStatus();
         },
 
         async call(action, label, fetchFn) {

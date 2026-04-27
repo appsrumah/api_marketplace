@@ -25,6 +25,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+decrypt.php
 
 ###############################################
 # Laravel — Generated / cache files
@@ -88,4 +89,3 @@ README.md
 shopee
 react
 stitch
-decrypt.php

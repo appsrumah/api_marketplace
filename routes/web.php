@@ -152,7 +152,7 @@ Route::middleware(['auth', 'check.active'])->group(function () {
     Route::prefix('stock')->name('stock.')->group(function () {
         Route::get('/',               [StockController::class, 'dashboard'])->name('dashboard');
         Route::get('/sync-all',       [StockController::class, 'syncAll'])->name('sync-all');
-        Route::get('/sync-progress',  [StockController::class, 'syncProgress'])->name('sync-progress');
+        // Route '/sync-progress' removed — live monitor polling disabled to reduce server load
         Route::post('/clear-failed',  [StockController::class, 'clearFailed'])->name('clear-failed');
         Route::post('/run-queue-web', [StockController::class, 'runQueueWeb'])->name('run-queue-web');
         Route::get('/{account}/sync', [StockController::class, 'syncAccount'])->name('sync-account');

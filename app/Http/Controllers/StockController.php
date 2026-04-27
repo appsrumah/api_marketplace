@@ -13,7 +13,6 @@ use App\Services\ShopeeProductSyncService;
 use App\Services\TiktokApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
@@ -703,148 +702,8 @@ class StockController extends Controller
         }
     }
 
-    /* ================================================================
-     *  Live Monitor — Status sync stok real-time via polling
-     *  GET /stock/sync-progress
-     *  Dipanggil dashboard setiap 5 detik via fetch()
-     * ================================================================ */
-    public function syncProgress(): JsonResponse
-    {
-        try {
-            $tiktokAccounts = AccountShopTiktok::forUser()->get();
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('syncProgress: gagal query TikTok accounts', ['error' => $e->getMessage()]);
-            $tiktokAccounts = collect();
-        }
-        try {
-            $shopeeAccounts = AccountShopShopee::forUser()->where('status', 'active')->get();
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('syncProgress: gagal query Shopee accounts', ['error' => $e->getMessage()]);
-            $shopeeAccounts = collect();
-        }
-
-        $now = now();
-
-        // ── Queue stats (both queues) ────────────────────────────────
-        $available    = 0;
-        $delayed      = 0;
-        $reserved     = 0;
-        $failedCount  = 0;
-        $recentErrors = [];
-
-        try {
-            $available = DB::table('jobs')
-                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
-                ->whereNull('reserved_at')
-                ->where('available_at', '<=', $now->timestamp)
-                ->count();
-
-            $delayed = DB::table('jobs')
-                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
-                ->whereNull('reserved_at')
-                ->where('available_at', '>', $now->timestamp)
-                ->count();
-
-            $reserved = DB::table('jobs')
-                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
-                ->whereNotNull('reserved_at')
-                ->count();
-        } catch (\Throwable $e) {
-        }
-
-        try {
-            $failedCount = DB::table('failed_jobs')
-                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
-                ->count();
-
-            $recentErrors = DB::table('failed_jobs')
-                ->whereIn('queue', ['tiktok-inventory', 'shopee-inventory'])
-                ->orderByDesc('failed_at')
-                ->limit(5)
-                ->get(['id', 'payload', 'exception', 'failed_at'])
-                ->map(function ($job) {
-                    $payload    = json_decode($job->payload, true);
-                    $firstLine  = explode("\n", $job->exception ?? '')[0];
-                    return [
-                        'failed_at' => $job->failed_at,
-                        'job'       => $payload['displayName'] ?? 'Unknown',
-                        'error'     => mb_substr($firstLine, 0, 200),
-                    ];
-                })->all();
-        } catch (\Throwable $e) {
-        }
-
-        // ── Account progress (TikTok + Shopee) ──────────────────────
-        // Seluruh blok ini dibungkus try-catch agar exceptions (DB down, cache error,
-        // kolom belum ada, dsb.) TIDAK menyebabkan respons 500 yang menghilangkan
-        // key `accounts` dari JSON — yang menyebabkan liveStatus.accounts.length throw.
-        $accountProgress = [];
-
-        try {
-            foreach ($tiktokAccounts as $account) {
-                try {
-                    $progress = Cache::get("stock_sync_progress_{$account->id}");
-                } catch (\Throwable $cacheErr) {
-                    $progress = null;
-                }
-                $accountProgress[] = [
-                    'account_id'        => $account->id,
-                    'account_name'      => $account->seller_name ?? '(tanpa nama)',
-                    'platform'          => 'TIKTOK',
-                    'id_outlet'         => $account->id_outlet,
-                    'last_update_stock' => $account->last_update_stock?->toIso8601String(),
-                    'last_update_human' => $account->last_update_stock?->diffForHumans(),
-                    'progress'          => $progress,
-                    'last_pushed_at'    => ProdukSaya::where('account_id', $account->id)->max('last_pushed_at'),
-                    'last_pushed_count' => ProdukSaya::where('account_id', $account->id)->whereNotNull('last_pushed_at')->count(),
-                    'products_total'    => ProdukSaya::where('account_id', $account->id)->count(),
-                    // expose last run skipped if cache has it
-                    'last_run_skipped'  => is_array($progress) && isset($progress['skipped']) ? $progress['skipped'] : null,
-                ];
-            }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('syncProgress: TikTok account loop error', ['error' => $e->getMessage()]);
-        }
-
-        try {
-            foreach ($shopeeAccounts as $account) {
-                try {
-                    $progress = Cache::get("shopee_stock_sync_progress_{$account->id}");
-                } catch (\Throwable $cacheErr) {
-                    $progress = null;
-                }
-                $accountProgress[] = [
-                    'account_id'        => $account->id,
-                    'account_name'      => $account->seller_name ?? '(tanpa nama)',
-                    'platform'          => 'SHOPEE',
-                    'id_outlet'         => $account->id_outlet,
-                    'last_update_stock' => $account->last_update_stock?->toIso8601String(),
-                    'last_update_human' => $account->last_update_stock?->diffForHumans(),
-                    'progress'          => $progress,
-                    'last_pushed_at'    => ProdukSaya::where('account_id', $account->id)->max('last_pushed_at'),
-                    'last_pushed_count' => ProdukSaya::where('account_id', $account->id)->whereNotNull('last_pushed_at')->count(),
-                    'products_total'    => ProdukSaya::where('account_id', $account->id)->count(),
-                    'last_run_skipped'  => is_array($progress) && isset($progress['skipped']) ? $progress['skipped'] : null,
-                ];
-            }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('syncProgress: Shopee account loop error', ['error' => $e->getMessage()]);
-        }
-
-        return response()->json([
-            'queue' => [
-                'available' => $available,
-                'delayed'   => $delayed,
-                'running'   => $reserved,
-                'failed'    => $failedCount,
-                'pending'   => $available + $delayed,
-                'total'     => $available + $delayed + $reserved,
-            ],
-            'recent_errors' => $recentErrors,
-            'accounts'      => array_values($accountProgress), // selalu array, bukan object
-            'checked_at'    => $now->toIso8601String(),
-        ]);
-    }
+    // syncProgress() removed — live monitor polling disabled to reduce load
+    // If a cached summary endpoint is desired later, implement here using Cache::remember(...)
 
     /* ================================================================
      *  Hapus failed jobs & dispatch ulang semua akun
