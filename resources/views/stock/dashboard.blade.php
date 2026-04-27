@@ -148,7 +148,7 @@
                     <p class="font-bold text-on-surface">
                         âœ… <span x-text="result.queued"></span> Jobs berhasil masuk ke antrian!
                     </p>
-                    <p class="mt-1 text-sm text-on-surface-variant">Jobs masuk ke antrian. Cron worker akan memproses otomatis dalam ~1 menit. Pantau progress di <strong class="text-primary">Live Monitor</strong>.</p>
+                    <p class="mt-1 text-sm text-on-surface-variant">Jobs masuk ke antrian. Cron worker akan memproses otomatis dalam ~1 menit. Cek <strong class="text-primary">Log Sync</strong> untuk detail.</p>
                     <div class="mt-3 flex flex-wrap gap-2" x-show="result.detail && result.detail.length">
                         <template x-for="d in result.detail" :key="d.account">
                             <span class="inline-flex items-center gap-1.5 rounded-lg bg-secondary-container px-3 py-1.5 text-xs font-semibold text-on-secondary-container">
@@ -182,7 +182,7 @@
                         </span>
                     </div>
                     <div x-show="result && result.released > 0" class="mt-3 rounded-xl bg-secondary-container/30 p-3">
-                        <p class="text-xs text-on-secondary-container">Pantau progress di <strong>Live Monitor</strong>. Cron worker akan memproses dalam ~1 menit.</p>
+                        <p class="text-xs text-on-secondary-container">Cron worker akan memproses dalam ~1 menit. Cek <strong>Log Sync</strong> untuk detail progress.</p>
                     </div>
                     <div x-show="result && result.jobs_remaining === 0" class="mt-3 rounded-xl bg-surface-container p-3">
                         <p class="text-xs text-on-surface-variant">Antrian kosong. Klik <strong class="text-secondary">Sync Semua Akun</strong> untuk mulai sync stok.</p>
