@@ -105,7 +105,7 @@ class ProductDetailController extends Controller
         $category = $item['category_id'] ?? null;
         $dim = $item['dimension'] ?? [];
 
-        return ProductDetail::updateOrCreate(
+        $detail = ProductDetail::updateOrCreate(
             [
                 'product_id' => $productId,
                 'account_id' => $account->id,
@@ -131,6 +131,32 @@ class ProductDetailController extends Controller
                 'raw_data' => $item,
             ]
         );
+
+        // <<< NEW: map Shopee item_status to local product_status and sync ProdukSaya
+        $shopeeStatus = $item['item_status'] ?? null;
+
+        $statusMap = [
+            'NORMAL'       => 'ACTIVATE',
+            'UNLIST'       => 'SELLER_DEACTIVATED',
+            'SELLER_DELETE'=> 'PLATFORM_DEACTIVATED',
+            'SHOPEE_DELETE'=> 'PLATFORM_DEACTIVATED',
+            'BANNED'       => 'PLATFORM_DEACTIVATED',
+            'REVIEWING'    => 'DRAFT',
+        ];
+
+        $mappedStatus = $statusMap[$shopeeStatus] ?? ($shopeeStatus ?? null);
+
+        if ($mappedStatus !== null) {
+            \App\Models\ProdukSaya::where('product_id', $productId)
+                ->where('account_id', $account->id)
+                ->update([
+                    'product_status' => $mappedStatus,
+                    'title' => $item['item_name'] ?? null,
+                ]);
+        }
+        // <<< END NEW
+
+        return $detail;
     }
 
     private function ensureFreshTokenShopee(\App\Models\AccountShopShopee $account): string
